@@ -1,0 +1,44 @@
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+// ─── Firebase Configuration ────────────────────────────────────────────────
+// All values are loaded from environment variables.
+// For local development → set in .env file
+// For Vercel production → set in Vercel Dashboard → Project Settings → Environment Variables
+// ⚠️  NEVER hardcode credentials here. This file is tracked by Git.
+
+const requiredEnvVars = [
+  "VITE_FIREBASE_API_KEY",
+  "VITE_FIREBASE_AUTH_DOMAIN",
+  "VITE_FIREBASE_PROJECT_ID",
+  "VITE_FIREBASE_STORAGE_BUCKET",
+  "VITE_FIREBASE_MESSAGING_SENDER_ID",
+  "VITE_FIREBASE_APP_ID",
+];
+
+// In development, warn about missing env vars
+if (import.meta.env.DEV) {
+  const missing = requiredEnvVars.filter((key) => !import.meta.env[key]);
+  if (missing.length > 0) {
+    console.warn(
+      `[Velouraz Firebase] Missing environment variables:\n${missing.map((k) => `  • ${k}`).join("\n")}\nAdd them to your .env file. See .env.example for reference.`
+    );
+  }
+}
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+export { app, auth, db };

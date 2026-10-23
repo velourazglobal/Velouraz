@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User profile documents
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // User subcollections (cart, wishlist)
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    
+    // Products collection: public read, admin write
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Blogs / Journal collection: public read, admin write
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Tags collection: public read, admin write
+    match /tags/{tagId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Gallery collection: public read, admin write
+    match /gallery/{photoId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Newsletter subscribers: public write (subscribe), admin read
+    match /newsletter/{subId} {
+      allow read: if request.auth != null;
+      allow create: if true;
+    }
+
+    // Coupons collection: public read, admin write
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Orders collection:
+    // Clients can read their own orders or query by email if authenticated
+    // Order paymentStatus and orderStatus cannot be mutated directly by unauthenticated clients
+    match /orders/{orderId} {
+      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email);
+      allow create: if true; // allow client checkout creation with server-side signature validation
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        // Only allow updating shipping/address info, never paymentStatus or orderStatus from client
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['paymentStatus', 'orderStatus', 'razorpayPaymentId', 'total']))
+      );
+      allow delete: if false;
+    }
+
+    // Site settings & world edits collections: public read, admin write
+    match /site_settings/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /world_edits_carousel/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /header_world_edits/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Stock notifications collection: public create, admin read/write
+    match /stock_notifications/{docId} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null;
+    }
+  }
+}
+

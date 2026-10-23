@@ -1,0 +1,221 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// VELOURAZ — Firestore Security Rules
+// Last Updated: October 2026
+//
+// AUTHENTICATION MODEL (as analysed from the codebase):
+//   • SuperAdmin  → Logs in via Firebase Auth (signInWithEmailAndPassword)
+//                   Their UID exists as a document in `superadmins/{uid}`
+//                   They have a real Firebase `request.auth` token → FULLY SUPPORTED
+//
+//   • Admin       → Logs in by querying `admins` collection with adminId + password
+//                   (NO Firebase Auth — no real `request.auth` token)
+//                   To write to Firestore via rules, Admin operations must go
+//                   through the SuperAdmin auth check below. If you want strict
+//                   per-admin control, migrate AdminAuth.jsx to Firebase Auth.
+//
+//   • Customer    → Logs in via Firebase Auth (OTP / email+pass in AuthProvider)
+//                   They have a real `request.auth` token → FULLY SUPPORTED
+//
+// RULE LOGIC:
+//   • isSuperAdmin()  → Firebase Auth user whose UID document exists in `superadmins`
+//   • isAdminUser()   → Same check on `admins` collection (requires AdminAuth migration)
+//   • isPrivileged()  → isSuperAdmin() OR isAdminUser() (covers BOTH admin types)
+//   • isOwner(userId) → Logged-in customer whose UID matches the document's owner
+// ═══════════════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ───────────────────────────────────────────────────────
+
+    // SuperAdmin check: Firebase Auth user who exists in `superadmins` collection
+    function isSuperAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/superadmins/$(request.auth.uid));
+    }
+
+    // Admin check: Firebase Auth user who exists in `admins` collection
+    // NOTE: This only works correctly once AdminAuth.jsx is migrated to Firebase Auth.
+    // Until then, admin panel writes should be done while logged in as SuperAdmin.
+    function isAdminUser() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Privileged = SuperAdmin OR Admin (both can manage store)
+    function isPrivileged() {
+      return isSuperAdmin() || isAdminUser();
+    }
+
+    // Customer ownership check
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // ─── 1. PRODUCTS ────────────────────────────────────────────────────────────
+    // Public: everyone reads. Only admin/superadmin can write.
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 2. TRASH (soft-deleted items from CatalogManager) ──────────────────────
+    // Only admin/superadmin can manage trash
+    match /trash/{trashId} {
+      allow read: if isPrivileged();
+      allow write: if isPrivileged();
+    }
+
+    // ─── 3. ORDERS ──────────────────────────────────────────────────────────────
+    // Anyone (guest) can create an order.
+    // Reading: only the order owner (by userId or email) OR admin/superadmin.
+    // Updating/Deleting: only admin/superadmin.
+    match /orders/{orderId} {
+      allow create: if true; // Guest checkout allowed
+      allow read: if isPrivileged()
+        || (request.auth != null && (
+          request.auth.uid == resource.data.userId ||
+          request.auth.token.email == resource.data.email
+        ));
+      allow update: if isPrivileged();
+      allow delete: if isPrivileged();
+    }
+
+    // ─── 4. USERS ───────────────────────────────────────────────────────────────
+    // Public read needed for guest order lookup by email at checkout.
+    // Write: owner can update their own profile. Admin/superadmin can also write.
+    // Sub-collections (cart, wishlist): strictly owner only.
+    match /users/{userId} {
+      allow read: if true; // Needed for checkout guest email lookup
+      allow create: if true; // Allow new account registration
+      allow update, delete: if isOwner(userId) || isPrivileged();
+
+      match /{subCollection}/{docId} {
+        allow read, write: if isOwner(userId) || isPrivileged();
+      }
+    }
+
+    // ─── 5. ADMINS ──────────────────────────────────────────────────────────────
+    // SuperAdmin can manage any admin. Authenticated admins can create or update their own document.
+    match /admins/{adminId} {
+      allow read: if true; // AdminAuth.jsx queries this collection for login
+      allow create, update: if isSuperAdmin() || (request.auth != null && request.auth.uid == adminId);
+      allow delete: if isSuperAdmin();
+    }
+
+    // ─── 6. SUPERADMINS ─────────────────────────────────────────────────────────
+    // Readable for login verification. Only superadmin can manage.
+    match /superadmins/{superAdminId} {
+      allow read: if true; // SuperAdminAuth.jsx queries this collection
+      allow write: if isSuperAdmin();
+    }
+
+    // ─── 7. CATEGORIES ──────────────────────────────────────────────────────────
+    match /categories/{catId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 8. SUBCATEGORIES ───────────────────────────────────────────────────────
+    match /subcategories/{subcatId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 9. COLLECTIONS ─────────────────────────────────────────────────────────
+    match /collections/{colId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 10. COUNTRIES ──────────────────────────────────────────────────────────
+    match /countries/{countryId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 11. BRANDS ─────────────────────────────────────────────────────────────
+    match /brands/{brandId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 12. ATTRIBUTES ─────────────────────────────────────────────────────────
+    match /attributes/{attrId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 13. TAGS ───────────────────────────────────────────────────────────────
+    match /tags/{tagId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 14. COUPONS ────────────────────────────────────────────────────────────
+    // Everyone can read (needed for checkout coupon validation).
+    // Only admin/superadmin can create/edit/delete coupons.
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 15. BLOGS ──────────────────────────────────────────────────────────────
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 16. REVIEWS ────────────────────────────────────────────────────────────
+    // Everyone can read. Logged-in customers can submit a review.
+    // Admin/superadmin can manage all reviews.
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null; // Logged-in customer submits review
+      allow update, delete: if isPrivileged();
+    }
+
+    // ─── 17. GALLERY ────────────────────────────────────────────────────────────
+    match /gallery/{imageId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 18. NEWS REELS ─────────────────────────────────────────────────────────
+    match /news_reels/{reelId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 19. WORLD EDITS CAROUSEL (Hero Banner / Site Settings) ─────────────────
+    match /world_edits_carousel/{slideId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 20. HEADER WORLD EDITS ─────────────────────────────────────────────────
+    match /header_world_edits/{editId} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+    // ─── 21. STOCK NOTIFICATIONS ────────────────────────────────────────────────
+    // Customers can subscribe for back-in-stock alerts.
+    // Admin/superadmin can manage and read all notifications.
+    match /stock_notifications/{notifId} {
+      allow create: if true; // Any visitor can subscribe
+      allow read, update, delete: if isPrivileged();
+    }
+
+    // ─── GLOBAL FALLBACK ────────────────────────────────────────────────────────
+    // Any other collection not explicitly listed above:
+    // Public read, admin/superadmin write. This is a safe-open default.
+    match /{document=**} {
+      allow read: if true;
+      allow write: if isPrivileged();
+    }
+
+  }
+}

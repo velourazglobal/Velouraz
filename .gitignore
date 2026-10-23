@@ -1,0 +1,51 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# ─── ENVIRONMENT FILES — NEVER COMMIT THESE ───────────────────────
+# These contain secrets, API keys, and credentials
+.env
+.env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
+.env.staging
+.env.*.local
+
+# ─── FIREBASE ─────────────────────────────────────────────────────
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+functions/.env
+functions/.env.local
+functions/node_modules
+.firebaserc
+
+# ─── TEMPORARY UPLOAD SCRIPTS — Do NOT commit to production ───────
+upload*.js
+delete_old.js
+new_product.json
+
+# ─── EDITOR DIRECTORIES AND FILES ─────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db

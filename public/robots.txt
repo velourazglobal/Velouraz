@@ -1,0 +1,36 @@
+User-agent: *
+Allow: /
+
+# Block admin and private routes from indexing
+Disallow: /admin
+Disallow: /admin/
+Disallow: /super-admin
+Disallow: /super-admin/
+Disallow: /checkout
+Disallow: /checkout/
+Disallow: /account
+Disallow: /account/
+Disallow: /orders
+Disallow: /orders/
+Disallow: /order-success
+Disallow: /order-success/
+Disallow: /order-tracking
+Disallow: /order-tracking/
+
+# Allow all public pages
+Allow: /
+Allow: /shop
+Allow: /about
+Allow: /contact
+Allow: /blog
+Allow: /gallery
+Allow: /privacy-policy
+Allow: /return-policy
+Allow: /terms-and-conditions
+Allow: /product/
+
+# Sitemap — dynamically generated, always up-to-date
+Sitemap: https://www.velouraz.in/sitemap.xml
+
+# Crawl delay for polite crawling
+Crawl-delay: 1
