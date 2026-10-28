@@ -426,7 +426,7 @@ const ProductDetail = () => {
             <div className="flex items-center justify-between border-b border-[#E5D7C5]/80 pb-5">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="bg-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-[0.2em] px-4 py-2 rounded-xl shadow-xs font-sans">
-                  {product.category || "Velouraz High Jewellery"}
+                  {product.category || "Velouraz Jewellery"}
                 </span>
                 {(product.inspired_country || product.country) && (
                   <span className="bg-[#FBF9F5] border border-[#E5D7C5] text-[#5A4D41] text-xs font-medium tracking-wider px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-2xs font-sans">

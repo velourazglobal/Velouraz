@@ -50,7 +50,7 @@ const sendNodemailerOtp = async (toEmail, otp) => {
     return { success: true, simulated: true };
   }
 
-  const fromAddress = process.env.SMTP_FROM || functions.config().smtp?.from || `"Velouraz High Jewellery" <${process.env.SMTP_USER || functions.config().smtp?.user}>`;
+  const fromAddress = process.env.SMTP_FROM || functions.config().smtp?.from || `"Velouraz Jewellery" <${process.env.SMTP_USER || functions.config().smtp?.user}>`;
 
   try {
     await transporter.sendMail({

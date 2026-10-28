@@ -101,7 +101,7 @@ const OrderSuccess = () => {
     <div className="min-h-screen bg-[#FDFBF7] font-sans text-[#2A2623]">
       <Breadcrumb
         title="Order Confirmation"
-        subtitle="Thank you for choosing Velouraz High Jewellery"
+        subtitle="Thank you for choosing Velouraz Jewellery"
         bgImage="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1600"
         links={[
           { name: "Home", href: "/" },

@@ -43,7 +43,7 @@ const AddToCartModal = ({ isOpen, onClose, product }) => {
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
-        
+
         {/* Dark Obsidian Glass Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -61,7 +61,7 @@ const AddToCartModal = ({ isOpen, onClose, product }) => {
           transition={{ type: "spring", damping: 25, stiffness: 280 }}
           className="relative z-10 max-w-lg w-full bg-white rounded-3xl border border-[#D8CBBE]/60 p-6 sm:p-7 shadow-2xl overflow-hidden font-sans text-[#2A2623]"
         >
-          
+
           {/* Header Bar */}
           <div className="flex items-center justify-between border-b border-[#F4EEE8] pb-4 mb-5">
             <div className="flex items-center gap-2">
@@ -70,7 +70,7 @@ const AddToCartModal = ({ isOpen, onClose, product }) => {
                 Added to Shopping Bag
               </h3>
             </div>
-            
+
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-[#F8F4EF] hover:bg-[#2e0e43] hover:text-white transition-all flex items-center justify-center text-[#7B6D63] cursor-pointer"
@@ -83,16 +83,16 @@ const AddToCartModal = ({ isOpen, onClose, product }) => {
           {/* Product Thumbnail & Details Card */}
           <div className="flex items-center gap-4 bg-[#FDFAF5] p-4 rounded-2xl border border-[#D8CBBE]/40 mb-5">
             <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-xl overflow-hidden bg-[#F4EEE8] border border-[#D8CBBE]/50 shrink-0">
-              <img 
-                src={productImage} 
-                alt={product.name} 
-                className="w-full h-full object-cover" 
+              <img
+                src={productImage}
+                alt={product.name}
+                className="w-full h-full object-cover"
               />
             </div>
 
             <div className="flex-1 min-w-0 space-y-1.5">
               <span className="text-sm font-sans font-bold uppercase tracking-[0.2em] text-[#C8A46A] block truncate">
-                {product.brand || product.category || "Velouraz High Jewellery"}
+                {product.brand || product.category || "Velouraz Jewellery"}
               </span>
 
               <h4 className="font-serif text-base sm:text-lg text-[#2e0e43] font-normal leading-snug line-clamp-2">

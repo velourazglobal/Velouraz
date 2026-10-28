@@ -341,7 +341,7 @@ const Wishlist = () => {
 
                         {/* Brand Tag */}
                         <span className="text-[14px] sm:text-[14px] font-sans font-semibold uppercase tracking-[0.2em] text-[#C8A46A] block truncate">
-                          {item.brand || "Velouraz High Jewellery"}
+                          {item.brand || "Velouraz Jewellery"}
                         </span>
 
                         {/* Product Title */}

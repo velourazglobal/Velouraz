@@ -38,7 +38,7 @@ const defaultReviews = [
     location: "London, UK",
     title: "Verified Buyer",
     date: "28 april 2026",
-    quote: "Velouraz high jewellery pieces have become my signature style for celebrations. The weight, luster, and finish are extraordinary.",
+    quote: "Velouraz Jewellery pieces have become my signature style for celebrations. The weight, luster, and finish are extraordinary.",
     rating: 5
   },
   {

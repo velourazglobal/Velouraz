@@ -211,7 +211,7 @@ const Cart = () => {
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <span className="text-[14px] sm:text-[14px] font-sans font-semibold uppercase tracking-[0.2em] text-[#C8A46A] block">
-                                  Velouraz High Jewellery
+                                  Velouraz Jewellery
                                 </span>
                                 <Link
                                   to={`/product/${item.id}`}

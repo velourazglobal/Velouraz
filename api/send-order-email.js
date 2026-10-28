@@ -140,7 +140,7 @@ export default async function handler(req, res) {
                       Need assistance? Reply to this email or contact support at ${adminEmail}.
                     </p>
                     <p style="font-size: 14px; color: #6b6374; margin-top: 14px;">
-                      © ${new Date().getFullYear()} Velouraz High Jewellery. All rights reserved.
+                      © ${new Date().getFullYear()} Velouraz Jewellery. All rights reserved.
                     </p>
                   </td>
                 </tr>

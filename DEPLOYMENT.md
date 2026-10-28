@@ -46,7 +46,7 @@ All credentials must be added to Vercel Dashboard — never commit `.env` to Git
 | `SMTP_SECURE` | `true` |
 | `SMTP_USER` | Your Gmail address |
 | `SMTP_PASS` | Gmail App Password (16 chars, get from myaccount.google.com/apppasswords) |
-| `SMTP_FROM` | `"Velouraz High Jewellery" <no-reply@velouraz.in>` |
+| `SMTP_FROM` | `"Velouraz Jewellery" <no-reply@velouraz.in>` |
 
 ### Admin & Payments
 | Variable | Where to find |

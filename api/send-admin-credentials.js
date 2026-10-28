@@ -44,7 +44,7 @@ export default async function handler(req, res) {
 
   try {
     const smtpUser = process.env.SMTP_USER;
-    const fromAddress = process.env.SMTP_FROM || (smtpUser ? `"Velouraz High Jewellery" <${smtpUser}>` : '"Velouraz Admin Control" <admin@velouraz.in>');
+    const fromAddress = process.env.SMTP_FROM || (smtpUser ? `"Velouraz Jewellery" <${smtpUser}>` : '"Velouraz Admin Control" <admin@velouraz.in>');
 
     const mailOptions = {
       from: fromAddress,
@@ -111,7 +111,7 @@ export default async function handler(req, res) {
                   <tr>
                     <td align="center" style="border-top: 1px solid #2e2633; margin-top: 30px; padding-top: 25px;">
                       <p style="font-size: 12px; color: #6b6374; margin: 0;">
-                        © ${new Date().getFullYear()} Velouraz High Jewellery. Executive Management System.
+                        © ${new Date().getFullYear()} Velouraz Jewellery. Executive Management System.
                       </p>
                     </td>
                   </tr>

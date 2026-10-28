@@ -77,7 +77,7 @@ export default async function handler(req, res) {
 
     // 7. Prepare email content
     const smtpUser = process.env.SMTP_USER;
-    const fromAddress = process.env.SMTP_FROM || (smtpUser ? `"Velouraz High Jewellery" <${smtpUser}>` : '');
+    const fromAddress = process.env.SMTP_FROM || (smtpUser ? `"Velouraz Jewellery" <${smtpUser}>` : '');
 
     const mailOptions = {
       from: fromAddress,
@@ -121,7 +121,7 @@ export default async function handler(req, res) {
                         If you did not request this code, please ignore this email.
                       </p>
                       <p style="font-size: 14px; color: #6b6374; margin-top: 8px;">
-                        © ${new Date().getFullYear()} Velouraz High Jewellery. All rights reserved.
+                        © ${new Date().getFullYear()} Velouraz Jewellery. All rights reserved.
                       </p>
                     </td>
                   </tr>

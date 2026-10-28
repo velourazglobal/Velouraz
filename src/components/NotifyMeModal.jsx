@@ -111,7 +111,7 @@ const NotifyMeModal = ({ isOpen, onClose, product }) => {
               </div>
               <div className="min-w-0 flex-1 space-y-0.5">
                 <span className="text-[11px] font-sans uppercase font-bold tracking-[0.2em] text-[#C8A46A] block truncate">
-                  {product.category || 'Velouraz High Jewellery'}
+                  {product.category || 'Velouraz Jewellery'}
                 </span>
                 <h4 className="font-serif text-sm sm:text-base text-[#2e0e43] font-normal leading-snug truncate">
                   {product.name}

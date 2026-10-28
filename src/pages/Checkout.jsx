@@ -39,8 +39,7 @@ import { sendOrderEmails } from "../services/emailService";
 import { createShiprocketOrder } from "../services/shiprocketService";
 import { validateCoupon } from "../services/couponService";
 import OtpModal from "../components/OtpModal";
-import { createRazorpayOrder, verifyPaymentAndCreateOrder } from "../services/otpService";
-import RazorpayTestModal from "../components/RazorpayTestModal";
+import { createRazorpayOrder, verifyPaymentAndCreateOrder, verifyRazorpayPayment, loadRazorpayScript } from "../services/otpService";
 import { getOptimizedImageUrl, handleImageError } from "../config/cloudinary";
 
 const Checkout = () => {
@@ -58,10 +57,6 @@ const Checkout = () => {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState(null);
   const [guestEmail, setGuestEmail] = useState("");
-
-  // Razorpay Test Payment Modal State
-  const [showRazorpayTestModal, setShowRazorpayTestModal] = useState(false);
-  const [rzpTestOrderData, setRzpTestOrderData] = useState(null);
 
   // Saved Addresses State
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -506,25 +501,34 @@ const Checkout = () => {
         const rzpOrder = await createRazorpayOrder(checkoutItems, discountAmount);
 
         const options = {
-          key: rzpOrder.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_VelourazDummyKey",
+          key: rzpOrder.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TtLi1EpzfxaU4d",
           amount: rzpOrder.amount,
           currency: rzpOrder.currency || "INR",
-          name: "Velouraz High Jewellery",
+          name: "Velouraz Jewellery",
           description: "Haute Joaillerie Order Payment",
           image: "/img/logo.png",
-          order_id: (rzpOrder.id && !rzpOrder.id.startsWith("order_sim_")) ? rzpOrder.id : undefined,
+          order_id: rzpOrder.id || rzpOrder.order_id,
           handler: async function (response) {
             try {
               setLoading(true);
+              // Step 3: Verify signature with backend before marking order as paid
+              await verifyRazorpayPayment({
+                order_id: response.razorpay_order_id || rzpOrder.id,
+                payment_id: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+              });
+
+              // Signature verified successfully -> create & confirm order
               const createdOrder = await executeOrderCreation({
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpayOrderId: response.razorpay_order_id || rzpOrder.id,
                 razorpaySignature: response.razorpay_signature,
+                paymentMethod: "razorpay",
               });
               await handlePaymentSuccess(createdOrder);
             } catch (err) {
               console.error("Payment verification error:", err);
-              alert(err.message || "Payment verification failed.");
+              alert(err.message || "Payment verification failed. Your order has not been placed.");
             } finally {
               setLoading(false);
             }
@@ -537,17 +541,25 @@ const Checkout = () => {
           theme: {
             color: "#2e0e43",
           },
+          modal: {
+            ondismiss: function () {
+              setLoading(false);
+              console.log("Razorpay checkout modal dismissed by user.");
+            },
+          },
         };
 
-        try {
-          const paymentObject = new window.Razorpay(options);
-          paymentObject.open();
+        const paymentObject = new window.Razorpay(options);
+
+        paymentObject.on("payment.failed", function (response) {
           setLoading(false);
-        } catch (err) {
-          console.warn("Razorpay simulated mode, completing order directly:", err);
-          const createdOrder = await executeOrderCreation({ paymentMethod: "razorpay" });
-          await handlePaymentSuccess(createdOrder);
-        }
+          const errorMsg = response.error?.description || response.error?.reason || "Payment could not be completed.";
+          console.error("Razorpay payment failed:", response.error);
+          alert(`Payment Failed: ${errorMsg}`);
+        });
+
+        paymentObject.open();
+        setLoading(false);
       } else {
         const createdOrder = await executeOrderCreation({ paymentMethod: "cod" });
         await handlePaymentSuccess(createdOrder);

@@ -202,7 +202,7 @@ const StockNotificationsManager = ({ isDarkMode }) => {
               `Back in Stock: ${req.productName} at Velouraz`
             );
             const mailtoBody = encodeURIComponent(
-              `Dear ${req.userName || "Valued Client"},\n\nWe are delighted to inform you that "${req.productName}" is back in stock at Velouraz High Jewellery.\n\nYou can order it now at: https://www.velouraz.in/product/${req.productId}\n\nWarm regards,\nVelouraz Concierge`
+              `Dear ${req.userName || "Valued Client"},\n\nWe are delighted to inform you that "${req.productName}" is back in stock at Velouraz Jewellery.\n\nYou can order it now at: https://www.velouraz.in/product/${req.productId}\n\nWarm regards,\nVelouraz Concierge`
             );
 
             return (
