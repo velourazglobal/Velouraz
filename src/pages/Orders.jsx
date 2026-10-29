@@ -1,3 +1,4 @@
+import { getThumbnailUrl, handleImageError } from '../config/cloudinary';
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../components/useAuth";
 import { db } from "../components/Firebase";
@@ -424,11 +425,7 @@ const Orders = () => {
                         key={idx}
                         className="flex items-center gap-4 p-3 rounded-2xl bg-[#F6F2EC] border border-[#E5D7C5]"
                       >
-                        <img
-                          src={item.image || '/img/jewellery/j.png'}
-                          alt={item.name}
-                          className="w-16 h-20 rounded-xl object-cover border border-[#E5D7C5] shrink-0"
-                        />
+                        <img src={getThumbnailUrl(item.image || '/img/jewellery/j.png', 160)} alt={item.name} width="64" height="80" loading="lazy" decoding="async" onError={(e) => handleImageError(e, item.image)} className="w-16 h-20 rounded-xl object-cover border border-[#E5D7C5] shrink-0" />
                         <div className="flex-1 min-w-0">
                           <h4 className="font-serif text-base font-normal text-[#14111E] truncate">{item.name}</h4>
                           <p className="text-xs text-[#786C60] font-sans pt-0.5">Quantity: {item.quantity || 1}</p>
@@ -714,7 +711,7 @@ const Orders = () => {
                 <div className="space-y-2 divide-y divide-[#E5D7C5]">
                   {selectedOrder.items?.map((item, i) => (
                     <div key={i} className="pt-2 flex items-center gap-3">
-                      <img src={item.image || '/img/jewellery/j.png'} alt={item.name} className="w-12 h-14 rounded-xl object-cover border border-[#E5D7C5]" />
+                      <img src={getThumbnailUrl(item.image || '/img/jewellery/j.png', 160)} alt={item.name} loading="lazy" decoding="async" onError={(e) => handleImageError(e, item.image)} className="w-12 h-14 rounded-xl object-cover border border-[#E5D7C5]" />
                       <div className="flex-1 min-w-0">
                         <p className="font-serif text-base text-[#14111E] truncate">{item.name}</p>
                         <p className="text-xs text-[#786C60] font-sans">Qty: {item.quantity || 1}</p>
@@ -812,7 +809,7 @@ const Orders = () => {
                               : "bg-[#F6F2EC] border-[#E5D7C5] hover:border-[#C8A46A]/50"
                               }`}
                           >
-                            <img src={item.image || '/img/jewellery/j.png'} alt={item.name} className="w-10 h-12 rounded-lg object-cover border border-[#E5D7C5]" />
+                            <img src={getThumbnailUrl(item.image || '/img/jewellery/j.png', 160)} alt={item.name} loading="lazy" decoding="async" onError={(e) => handleImageError(e, item.image)} className="w-10 h-12 rounded-lg object-cover border border-[#E5D7C5]" />
                             <div className="flex-1 min-w-0">
                               <p className="font-serif text-sm text-[#14111E] truncate">{item.name}</p>
                               <p className="text-[14px] text-[#786C60] font-sans">₹{(Number(item.price || 0)).toLocaleString()}</p>

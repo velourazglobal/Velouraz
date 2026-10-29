@@ -40,7 +40,7 @@ import { createShiprocketOrder } from "../services/shiprocketService";
 import { validateCoupon } from "../services/couponService";
 import OtpModal from "../components/OtpModal";
 import { createRazorpayOrder, verifyPaymentAndCreateOrder, verifyRazorpayPayment, loadRazorpayScript } from "../services/otpService";
-import { getOptimizedImageUrl, handleImageError } from "../config/cloudinary";
+import { getOptimizedImageUrl, getThumbnailUrl, handleImageError } from "../config/cloudinary";
 
 const Checkout = () => {
   const { cartItems, clearCart } = useStore();
@@ -741,7 +741,7 @@ const Checkout = () => {
                     <div key={idx} className="flex gap-3 items-center p-2 rounded-xl bg-[#FDFAF5] border border-[#D8CBBE]/30">
                       <div className="w-14 h-16 rounded-lg overflow-hidden bg-[#F4EEE8] border border-[#D8CBBE]/40 flex-shrink-0">
                         <img
-                          src={item.image || item.primaryImage || '/img/jewellery/j.png'}
+                          src={getThumbnailUrl(item.image || item.primaryImage || '/img/jewellery/j.png', 160)} width="56" height="64" loading="lazy" decoding="async" onError={(e) => handleImageError(e, item.image || item.primaryImage)}
                           alt={item.name}
                           className="w-full h-full object-cover"
                         />
@@ -1177,7 +1177,7 @@ const Checkout = () => {
                         const rawImg = item.image || item.primaryImage || '/img/jewellery/j.png';
                         return (
                           <img
-                            src={getOptimizedImageUrl(rawImg)}
+                            src={getThumbnailUrl(rawImg, 160)} width="56" height="64"
                             alt={item.name}
                             loading="lazy"
                             decoding="async"

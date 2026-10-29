@@ -1,3 +1,4 @@
+import { getThumbnailUrl, handleImageError } from '../config/cloudinary';
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useLocation } from "react-router-dom";
 import { db } from "../components/Firebase";
@@ -224,7 +225,7 @@ const OrderSuccess = () => {
               {items.map((item, idx) => (
                 <div key={idx} className="py-4 flex items-center gap-4">
                   <div className="w-16 h-18 rounded-xl bg-[#FAF6F0] overflow-hidden border border-[#E8DFD5] shrink-0">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <img src={getThumbnailUrl(item.image, 160)} alt={item.name} width="64" height="72" loading="lazy" decoding="async" onError={(e) => handleImageError(e, item.image)} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-serif font-normal text-[#2e0e43] truncate">{item.name}</h4>

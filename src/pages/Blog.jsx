@@ -1,3 +1,4 @@
+import { getOptimizedImageUrl, getImageSrcSet, handleImageError } from '../config/cloudinary';
 import React, { useState, useEffect } from 'react';
 import { db } from '../components/Firebase';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
@@ -156,11 +157,7 @@ const Blog = () => {
               >
                 {/* Card Image */}
                 <div className="relative aspect-[16/12] w-full overflow-hidden bg-[#F3ECE1]">
-                  <img
-                    src={blog.image}
-                    alt={blog.title}
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
+                  <img src={getOptimizedImageUrl(blog.image, { width: 800 })} srcSet={getImageSrcSet(blog.image, [360, 600, 800])} sizes="(max-width: 768px) 100vw, 50vw" alt={blog.title} loading="lazy" decoding="async" onError={(e) => handleImageError(e, blog.image)} className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-40 group-hover:opacity-20 transition-opacity" />
                 </div>
 

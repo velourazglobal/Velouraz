@@ -1,3 +1,4 @@
+import { getOptimizedVideoUrl, getVideoPosterUrl, getOptimizedImageUrl, getImageSrcSet, handleImageError, handleVideoError } from '../config/cloudinary';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../components/Firebase';
@@ -227,11 +228,14 @@ const WorldEdit = () => {
                 <div className="relative aspect-[3/4] w-full overflow-hidden bg-gray-900">
                   {c.video ? (
                     <video
-                      src={c.video}
+                      src={getOptimizedVideoUrl(c.video)}
+                      poster={getVideoPosterUrl(c.video, { fallback: c.image })}
+                      preload="none"
                       autoPlay
                       loop
                       muted
                       playsInline
+                      onError={(e) => handleVideoError(e, c.video)}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                     />
                   ) : (

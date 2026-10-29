@@ -1,3 +1,4 @@
+import { getOptimizedVideoUrl, getVideoPosterUrl, handleVideoError } from '../config/cloudinary';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -61,7 +62,7 @@ const IndiaEdit = () => {
           >
             {/* Background Video */}
             <video
-              src="https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4"
+              src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")} poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")} preload="metadata"
               autoPlay
               loop
               muted
@@ -112,7 +113,7 @@ const IndiaEdit = () => {
           >
             {/* Background Video */}
             <video
-              src="https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4"
+              src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")} poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")} preload="metadata"
               autoPlay
               loop
               muted

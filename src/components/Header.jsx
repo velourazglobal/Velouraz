@@ -1,3 +1,4 @@
+import { getThumbnailUrl, getOptimizedImageUrl, handleImageError } from '../config/cloudinary';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -695,11 +696,7 @@ const SearchOverlayModal = ({ onClose }) => {
                       className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-white/[0.04] border border-[#C8A46A]/20 hover:border-[#C8A46A] hover:bg-white/[0.08] transition-all duration-300 flex items-center gap-3 group"
                     >
                       <div className="w-14 h-16 sm:w-16 sm:h-18 rounded-lg sm:rounded-xl overflow-hidden bg-[#1A0829] border border-[#C8A46A]/30 shrink-0">
-                        <img
-                          src={item.image || '/img/jewellery/j.png'}
-                          alt={item.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
+                        <img src={getThumbnailUrl(item.image || '/img/jewellery/j.png', 160)} alt={item.name} width="64" height="72" loading="lazy" decoding="async" onError={(e) => handleImageError(e, item.image)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       </div>
 
                       <div className="overflow-hidden space-y-1 min-w-0">
@@ -750,11 +747,7 @@ const WorldEditDropdownCard = ({ item, onClose }) => {
     >
       <div className="absolute inset-0 z-0 overflow-hidden bg-zinc-950">
         {bgImg && (
-          <img
-            src={bgImg}
-            alt={item.country}
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-          />
+          <img src={getThumbnailUrl(bgImg, 480)} alt={item.country} loading="lazy" decoding="async" onError={(e) => handleImageError(e, bgImg)} className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105" />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 pointer-events-none" />
       </div>

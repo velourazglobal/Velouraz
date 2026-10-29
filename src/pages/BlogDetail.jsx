@@ -1,3 +1,4 @@
+import { getOptimizedImageUrl, getImageSrcSet, handleImageError } from '../config/cloudinary';
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { db } from '../components/Firebase';
@@ -231,11 +232,7 @@ const BlogDetail = () => {
           >
             <div className="relative rounded-3xl border border-[#E7DEC8] overflow-hidden bg-white shadow-[0_14px_40px_rgba(0,0,0,0.06)] group">
               <div className="aspect-[16/10] max-h-[380px] sm:max-h-[420px] w-full overflow-hidden bg-[#F3ECE1]">
-                <img
-                  src={blog.image}
-                  alt={blog.title}
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                />
+                <img src={getOptimizedImageUrl(blog.image, { width: 1200, crop: "limit" })} srcSet={getImageSrcSet(blog.image, [600, 900, 1200])} sizes="(max-width: 1024px) 100vw, 800px" alt={blog.title} fetchPriority="high" loading="eager" decoding="async" onError={(e) => handleImageError(e, blog.image)} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
               </div>
 
               {/* Image Footer Details */}
@@ -341,11 +338,7 @@ const BlogDetail = () => {
                   className="group bg-white rounded-2xl border border-[#E7DEC8] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_16px_40px_rgba(46,14,67,0.08)] hover:border-[#C8A97A] transition-all duration-500 flex flex-col justify-between"
                 >
                   <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#F3ECE1]">
-                    <img
-                      src={rBlog.image}
-                      alt={rBlog.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+                    <img src={getOptimizedImageUrl(rBlog.image, { width: 600 })} srcSet={getImageSrcSet(rBlog.image, [360, 600])} sizes="(max-width: 768px) 100vw, 33vw" alt={rBlog.title} loading="lazy" decoding="async" onError={(e) => handleImageError(e, rBlog.image)} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   </div>
                   <div className="p-5 space-y-2 flex-1 flex flex-col justify-between">
                     <h4

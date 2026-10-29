@@ -1,3 +1,4 @@
+import { getOptimizedImageUrl, getImageSrcSet, handleImageError } from '../config/cloudinary';
 import React from 'react';
 import { motion } from 'framer-motion';
 import AboutBreadcrumb from '../components/AboutBreadcrumb';
@@ -88,7 +89,7 @@ const About = () => {
           >
             <div className="relative group overflow-hidden rounded-xl sm:rounded-2xl border border-[#D8CBBE]/50 shadow-[0_15px_45px_rgba(42,38,35,0.08)] aspect-[4/5] bg-[#F6F2EB]">
               <img
-                src="https://res.cloudinary.com/dcjn4y284/image/upload/v1788501333/WhatsApp_Image_2026-09-03_at_13.00.32_zrjdup.jpg"
+                src={getOptimizedImageUrl("https://res.cloudinary.com/dcjn4y284/image/upload/v1788501333/WhatsApp_Image_2026-09-03_at_13.00.32_zrjdup.jpg", { width: 800 })} srcSet={getImageSrcSet("https://res.cloudinary.com/dcjn4y284/image/upload/v1788501333/WhatsApp_Image_2026-09-03_at_13.00.32_zrjdup.jpg", [400, 600, 800])} sizes="(max-width: 768px) 100vw, 50vw" loading="lazy" decoding="async" onError={(e) => handleImageError(e, "https://res.cloudinary.com/dcjn4y284/image/upload/v1788501333/WhatsApp_Image_2026-09-03_at_13.00.32_zrjdup.jpg")}
                 alt="Zahabiya & Alifiya - Founders of Velouraz"
                 className="w-full h-full object-cover transition-transform duration-[1200ms] group-hover:scale-[1.03]"
               />
@@ -234,7 +235,7 @@ const About = () => {
           >
             <div className="relative group overflow-hidden rounded-xl sm:rounded-2xl border border-[#D8CBBE]/50 shadow-[0_15px_45px_rgba(42,38,35,0.08)] aspect-[4/5] bg-[#F6F2EB]">
               <img
-                src="https://res.cloudinary.com/dcjn4y284/image/upload/v1788501324/WhatsApp_Image_2026-09-03_at_13.00.32.jpegh_xsa9mr.jpg"
+                src={getOptimizedImageUrl("https://res.cloudinary.com/dcjn4y284/image/upload/v1788501324/WhatsApp_Image_2026-09-03_at_13.00.32.jpegh_xsa9mr.jpg", { width: 800 })} srcSet={getImageSrcSet("https://res.cloudinary.com/dcjn4y284/image/upload/v1788501324/WhatsApp_Image_2026-09-03_at_13.00.32.jpegh_xsa9mr.jpg", [400, 600, 800])} sizes="(max-width: 768px) 100vw, 50vw" loading="lazy" decoding="async" onError={(e) => handleImageError(e, "https://res.cloudinary.com/dcjn4y284/image/upload/v1788501324/WhatsApp_Image_2026-09-03_at_13.00.32.jpegh_xsa9mr.jpg")}
                 alt="Velouraz Heritage & Craftsmanship"
                 className="w-full h-full object-cover transition-transform duration-[1200ms] group-hover:scale-[1.03]"
               />

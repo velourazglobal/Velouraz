@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { X, ShoppingBag, Heart, Loader2 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../hooks/useStore';
-import { getOptimizedImageUrl, handleImageError } from '../config/cloudinary';
+import { getOptimizedImageUrl, getThumbnailUrl, getImageSrcSet, handleImageError } from '../config/cloudinary';
 
 const QuickView = ({ product, onClose }) => {
   const { addToCart, addToWishlist, isInCart, isInWishlist } = useStore();

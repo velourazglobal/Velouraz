@@ -6,7 +6,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Autoplay } from 'swiper/modules';
 import { db } from '../../components/Firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { getOptimizedImageUrl, getOptimizedVideoUrl, handleImageError } from '../../config/cloudinary';
+import { getOptimizedImageUrl, getThumbnailUrl, getImageSrcSet, getOptimizedVideoUrl, getVideoPosterUrl, handleImageError } from '../../config/cloudinary';
 
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -120,6 +120,8 @@ const CardItem = ({ item }) => {
           <video
             ref={videoRef}
             src={getOptimizedVideoUrl(videoSrc)}
+            poster={getVideoPosterUrl(videoSrc)}
+            preload="none"
             autoPlay
             loop
             muted
@@ -130,7 +132,7 @@ const CardItem = ({ item }) => {
           <>
             {/* 1st Image */}
             <img
-              src={getOptimizedImageUrl(defaultImg)}
+              src={getThumbnailUrl(defaultImg, 600)} srcSet={getImageSrcSet(defaultImg, [360, 600, 800])} sizes="(max-width: 768px) 100vw, 33vw"
               alt={item.country}
               loading="lazy"
               decoding="async"
@@ -141,7 +143,7 @@ const CardItem = ({ item }) => {
 
             {/* 2nd Image */}
             <img
-              src={getOptimizedImageUrl(hoverImg)}
+              src={getThumbnailUrl(hoverImg, 600)} srcSet={getImageSrcSet(hoverImg, [360, 600, 800])} sizes="(max-width: 768px) 100vw, 33vw"
               alt={`${item.country} alternative`}
               loading="lazy"
               decoding="async"

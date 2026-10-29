@@ -970,7 +970,7 @@ const ProductsTable = ({
                 <div className="flex items-center gap-4 mb-4 pl-7">
                   <div className={`w-14 h-14 rounded-2xl bg-slate-100 overflow-hidden border flex-shrink-0 ${viewMode === "trash" ? "border-red-100 grayscale" : "border-slate-200"}`}>
                     {row.images?.[0] ? (
-                      <img src={row.images[0]} alt={row.name} className="w-full h-full object-cover" />
+                      <img src={getThumbnailUrl(row.images[0], 120)} alt={row.name} width="56" height="56" loading="lazy" decoding="async" onError={(e) => handleImageError(e, row.images[0])} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-300">
                         <Package size={22} />

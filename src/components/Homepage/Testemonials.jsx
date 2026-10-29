@@ -5,7 +5,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Autoplay } from 'swiper/modules';
 import { db } from '../Firebase';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
-import { getOptimizedImageUrl, handleImageError } from '../../config/cloudinary';
+import { getOptimizedImageUrl, getThumbnailUrl, handleImageError } from '../../config/cloudinary';
 
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -190,8 +190,10 @@ const TestimonialSection = () => {
                     <div className="mb-2 flex items-center gap-2 text-[14px] text-[#8B6B38] font-sans font-semibold bg-[#FAF3E8]/80 px-2.5 py-1 rounded-lg border border-[#C8A46A]/30 w-fit shrink-0">
                       {review.productImage && (
                         <img
-                          src={getOptimizedImageUrl(review.productImage)}
+                          src={getThumbnailUrl(review.productImage, 96)}
                           alt={review.productName}
+                          width="28"
+                          height="28"
                           loading="lazy"
                           decoding="async"
                           onError={(e) => handleImageError(e, review.productImage)}

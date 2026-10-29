@@ -1,3 +1,4 @@
+import { getThumbnailUrl, handleImageError } from '../config/cloudinary';
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -84,8 +85,13 @@ const AddToCartModal = ({ isOpen, onClose, product }) => {
           <div className="flex items-center gap-4 bg-[#FDFAF5] p-4 rounded-2xl border border-[#D8CBBE]/40 mb-5">
             <div className="w-20 h-24 sm:w-24 sm:h-28 rounded-xl overflow-hidden bg-[#F4EEE8] border border-[#D8CBBE]/50 shrink-0">
               <img
-                src={productImage}
+                src={getThumbnailUrl(productImage, 200)}
                 alt={product.name}
+                width="96"
+                height="112"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => handleImageError(e, productImage)}
                 className="w-full h-full object-cover"
               />
             </div>

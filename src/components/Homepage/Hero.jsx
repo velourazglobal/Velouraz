@@ -6,7 +6,7 @@ import { Autoplay } from 'swiper/modules';
 import 'swiper/css';
 import { db } from '../../components/Firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { getOptimizedVideoUrl, getOptimizedImageUrl, handleImageError } from '../../config/cloudinary';
+import { getOptimizedVideoUrl, getVideoPosterUrl, handleVideoError, getOptimizedImageUrl, handleImageError } from '../../config/cloudinary';
 
 const GOLD = '#C8A97A';
 const SERIF = "'Cormorant Garamond', Georgia, serif";
@@ -60,13 +60,15 @@ const Hero = () => {
             key={heroConfig.videoURL}
             ref={videoRef}
             src={getOptimizedVideoUrl(heroConfig.videoURL)}
+            poster={getVideoPosterUrl(heroConfig.videoURL)}
             autoPlay
             muted
             loop
             playsInline
-            preload="auto"
+            preload="metadata"
             onError={(e) => {
-              console.warn("Hero video playback failed:", e);
+              console.warn("Hero video playback notice:", e);
+              handleVideoError(e, heroConfig.videoURL);
             }}
             className="absolute inset-0 w-full h-full object-cover"
           />

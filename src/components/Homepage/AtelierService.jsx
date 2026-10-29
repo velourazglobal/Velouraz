@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, Award, Compass, Heart } from 'lucide-react';
-import { getOptimizedImageUrl, handleImageError } from '../../config/cloudinary';
+import { getOptimizedImageUrl, getImageSrcSet, handleImageError } from '../../config/cloudinary';
 
 const ATELIER_IMG = "https://images.unsplash.com/photo-1608042314453-ae338d80c427?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjN8fGpld2Vscnl8ZW58MHx8MHx8fDA%3D";
 
@@ -42,7 +42,7 @@ const AtelierService = () => {
               className="relative aspect-[3/4] md:aspect-[4/3] lg:aspect-auto lg:h-[800px] rounded-[24px] md:rounded-[40px] overflow-hidden shadow-[0_30px_90px_rgba(44,26,14,0.12)] border border-[#640D14]/15"
             >
               <img
-                src={getOptimizedImageUrl(ATELIER_IMG)}
+                src={getOptimizedImageUrl(ATELIER_IMG, { width: 900 })} srcSet={getImageSrcSet(ATELIER_IMG, [480, 720, 960])} sizes="(max-width: 1024px) 100vw, 50vw"
                 alt="Master Artisan at Work"
                 loading="lazy"
                 decoding="async"

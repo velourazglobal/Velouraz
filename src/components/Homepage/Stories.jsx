@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 
 import 'swiper/css';
 import 'swiper/css/pagination';
-import { getOptimizedImageUrl, handleImageError } from '../../config/cloudinary';
+import { getOptimizedImageUrl, getImageSrcSet, handleImageError } from '../../config/cloudinary';
 
 const blogPosts = [
   {
@@ -114,7 +114,7 @@ const Stories = () => {
                   >
                     <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-6 shadow-sm group-hover:shadow-xl transition-all duration-700">
                       <img 
-                        src={getOptimizedImageUrl(post.image)} 
+                        src={getOptimizedImageUrl(post.image, { width: 600 })} srcSet={getImageSrcSet(post.image, [360, 540, 720])} sizes="(max-width: 768px) 100vw, 33vw" 
                         alt={post.title} 
                         loading="lazy"
                         decoding="async"

@@ -9,7 +9,7 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import 'swiper/css/free-mode';
-import { getOptimizedImageUrl, handleImageError } from '../../config/cloudinary';
+import { getOptimizedImageUrl, getImageSrcSet, handleImageError } from '../../config/cloudinary';
 
 const worldEdits = [
   {
@@ -145,7 +145,7 @@ const WorldEdit = () => {
                 >
                   {/* Image */}
                   <img 
-                    src={getOptimizedImageUrl(item.image)} 
+                    src={getOptimizedImageUrl(item.image, { width: 720 })} srcSet={getImageSrcSet(item.image, [360, 540, 720])} sizes="(max-width: 768px) 100vw, 33vw" 
                     alt={item.region} 
                     loading="lazy"
                     decoding="async"

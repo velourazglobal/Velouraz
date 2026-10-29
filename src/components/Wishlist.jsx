@@ -311,7 +311,7 @@ const Wishlist = () => {
                       {/* Image Showcase Container */}
                       <div className="aspect-[4/5] rounded-xl sm:rounded-2xl overflow-hidden bg-[#F4EEE8] relative mb-3 sm:mb-4 border border-[#D8CBBE]/30">
                         <img
-                          src={getOptimizedImageUrl(item.image)}
+                          src={getThumbnailUrl(item.image, 400)} srcSet={getImageSrcSet(item.image, [280, 420])} sizes="(max-width: 640px) 50vw, 33vw"
                           alt={item.name}
                           loading="lazy"
                           decoding="async"

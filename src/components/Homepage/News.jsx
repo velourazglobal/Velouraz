@@ -76,6 +76,8 @@ const TheJournal = () => {
                   {/* Video Reel Preview */}
                   <video
                     src={getOptimizedVideoUrl(post.video, { width: 480 })}
+                    poster={getVideoPosterUrl(post.video, { width: 480 })}
+                    preload="none"
                     autoPlay
                     loop
                     muted

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import AddToCartModal from "../components/AddToCartModal";
 import NotifyMeModal from "../components/NotifyMeModal";
-import { getOptimizedImageUrl, handleImageError } from "../config/cloudinary";
+import { getOptimizedImageUrl, getThumbnailUrl, getImageSrcSet, handleImageError } from "../config/cloudinary";
 import useSEO from "../hooks/useSEO";
 
 const ProductDetail = () => {

@@ -7,7 +7,7 @@ import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../Firebase';
 import { useStore } from '../../hooks/useStore';
 import AddToCartModal from '../AddToCartModal';
-import { getOptimizedImageUrl, handleImageError } from '../../config/cloudinary';
+import { getOptimizedImageUrl, getThumbnailUrl, getImageSrcSet, getOptimizedVideoUrl, getVideoPosterUrl, handleImageError, handleVideoError } from '../../config/cloudinary';
 import { isProductBestseller } from '../../services/productService';
 
 import 'swiper/css';
@@ -203,7 +203,9 @@ const BestSellers = () => {
                           const rawImg = product.image || product.images?.[0] || 'img/jewellery/j.png';
                           return (
                             <img
-                              src={getOptimizedImageUrl(rawImg)}
+                              src={getThumbnailUrl(rawImg, 420)}
+                              srcSet={getImageSrcSet(rawImg, [320, 480, 640])}
+                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                               alt={product.name}
                               loading="lazy"
                               decoding="async"
