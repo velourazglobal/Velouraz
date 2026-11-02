@@ -24,7 +24,7 @@ export const listenToTags = (callback) => {
       ...docSnap.data(),
     }));
 
-    const firestoreNames = new Set(firestoreTags.map((t) => t.name.toLowerCase()));
+
 
     const allTags = [
       ...DEFAULT_TAGS.map((name) => ({

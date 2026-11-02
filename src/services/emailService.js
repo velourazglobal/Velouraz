@@ -41,7 +41,7 @@ export const sendOrderEmails = async (orderData) => {
     if (text) {
       try {
         data = JSON.parse(text);
-      } catch (e) {
+      } catch {
         console.warn("[EmailService] API returned non-JSON response:", text.slice(0, 150));
       }
     }
@@ -87,7 +87,7 @@ export const sendAdminCredentialsEmail = async ({ email, adminId, displayName, p
     if (text) {
       try {
         data = JSON.parse(text);
-      } catch (e) {
+      } catch {
         console.warn("[EmailService] API returned non-JSON response:", text.slice(0, 150));
       }
     }

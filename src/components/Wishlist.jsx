@@ -24,7 +24,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore } from "../hooks/useStore";
 import Breadcrumb from "./Breadcrumb";
-import { getOptimizedImageUrl, handleImageError } from "../config/cloudinary";
+import { getOptimizedImageUrl, getThumbnailUrl, getImageSrcSet, handleImageError } from "../config/cloudinary";
 import NotifyMeModal from "./NotifyMeModal";
 
 const Wishlist = () => {

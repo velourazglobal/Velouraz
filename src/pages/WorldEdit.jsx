@@ -1,4 +1,4 @@
-import { getOptimizedVideoUrl, getVideoPosterUrl, getOptimizedImageUrl, getImageSrcSet, handleImageError, handleVideoError } from '../config/cloudinary';
+import { getOptimizedVideoUrl, getVideoPosterUrl, getOptimizedImageUrl, handleImageError, handleVideoError } from '../config/cloudinary';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../components/Firebase';
@@ -6,7 +6,7 @@ import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Globe2, Sparkles, Filter, ShoppingBag, Eye, Heart } from 'lucide-react';
 import Breadcrumb from '../components/Breadcrumb';
-import { useStore } from '../hooks/useStore';
+
 
 const defaultCountries = [
   {
@@ -88,9 +88,9 @@ const WorldEdit = () => {
   const [products, setProducts] = useState([]);
   const [countriesList, setCountriesList] = useState(defaultCountries);
   const [selectedCountry, setSelectedCountry] = useState('All');
-  const [loading, setLoading] = useState(true);
 
-  const { addToCart, addToWishlist, isInCart, isInWishlist } = useStore();
+
+
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -101,8 +101,6 @@ const WorldEdit = () => {
         }
       } catch (err) {
         console.error("Error fetching products for World Edit:", err);
-      } finally {
-        setLoading(false);
       }
     };
     fetchProducts();
@@ -240,7 +238,8 @@ const WorldEdit = () => {
                     />
                   ) : (
                     <img
-                      src={c.image}
+                      src={getOptimizedImageUrl(c.image, { width: 800 })}
+                      onError={handleImageError}
                       alt={c.name}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1200ms] group-hover:scale-105"
                     />

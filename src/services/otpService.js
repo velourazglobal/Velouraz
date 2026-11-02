@@ -69,7 +69,7 @@ export const requestOtp = async (email) => {
   let data = {};
   try {
     data = await response.json();
-  } catch (e) {
+  } catch {
     throw new Error("Invalid response from server. Please try again.");
   }
 
@@ -107,7 +107,7 @@ export const verifyOtp = async (email, otp, orderId = null, displayName = "") =>
   let data = {};
   try {
     data = await response.json();
-  } catch (e) {
+  } catch {
     throw new Error("Invalid response from server. Please try again.");
   }
 
@@ -193,5 +193,10 @@ export const verifyPaymentAndCreateOrder = async (payload) => {
     orderNumber,
     requiresOtp: !authUid,
     email: cleanEmail,
+    items: sanitizedItems,
+    total,
+    paymentMethod,
+    razorpayOrderId,
+    razorpayPaymentId,
   };
 };

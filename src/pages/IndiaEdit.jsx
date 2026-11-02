@@ -62,7 +62,10 @@ const IndiaEdit = () => {
           >
             {/* Background Video */}
             <video
-              src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")} poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")} preload="metadata"
+              src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
+              poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
+              preload="metadata"
+              onError={(e) => handleVideoError(e, "https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
               autoPlay
               loop
               muted
@@ -113,7 +116,10 @@ const IndiaEdit = () => {
           >
             {/* Background Video */}
             <video
-              src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")} poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")} preload="metadata"
+              src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
+              poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
+              preload="metadata"
+              onError={(e) => handleVideoError(e, "https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
               autoPlay
               loop
               muted

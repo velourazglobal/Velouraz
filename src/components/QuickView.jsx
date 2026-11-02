@@ -30,6 +30,11 @@ const QuickView = ({ product, onClose }) => {
     }
   };
 
+  const handleClose = () => {
+    setIsOpen(false);
+    setTimeout(() => onClose?.(), 300);
+  };
+
   if (!isOpen || !product) {
     return null;
   }

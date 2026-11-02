@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useStore } from "../hooks/useStore";
 import { useAuth } from "../components/useAuth";
 import { db } from "../components/Firebase";
-import { collection, addDoc, serverTimestamp, doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc, setDoc, writeBatch, query, where, getDocs } from "firebase/firestore";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -39,12 +39,12 @@ import { sendOrderEmails } from "../services/emailService";
 import { createShiprocketOrder } from "../services/shiprocketService";
 import { validateCoupon } from "../services/couponService";
 import OtpModal from "../components/OtpModal";
-import { createRazorpayOrder, verifyPaymentAndCreateOrder, verifyRazorpayPayment, loadRazorpayScript } from "../services/otpService";
-import { getOptimizedImageUrl, getThumbnailUrl, handleImageError } from "../config/cloudinary";
+import { createRazorpayOrder, verifyRazorpayPayment } from "../services/otpService";
+import { getThumbnailUrl, handleImageError } from "../config/cloudinary";
 
 const Checkout = () => {
   const { cartItems, clearCart } = useStore();
-  const { user, verifyEmailOtp } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 

@@ -4,7 +4,7 @@ import { Instagram, ArrowRight, ExternalLink, X } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, FreeMode } from 'swiper/modules';
 import { listenToNewsReels, DEFAULT_REELS } from '../../services/newsService';
-import { getOptimizedVideoUrl } from '../../config/cloudinary';
+import { getOptimizedVideoUrl, getVideoPosterUrl } from '../../config/cloudinary';
 
 import 'swiper/css';
 import 'swiper/css/free-mode';
