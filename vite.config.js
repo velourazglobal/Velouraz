@@ -13,7 +13,8 @@ function apiDevServerPlugin(env) {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (req.url && req.url.startsWith('/api/')) {
-          const urlPath = req.url.split('?')[0];
+          const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+          const urlPath = parsedUrl.pathname;
           const relativePath = urlPath.replace(/^\/api\//, '');
           const jsFilePath = path.resolve(process.cwd(), 'api', `${relativePath}.js`);
 
@@ -22,7 +23,9 @@ function apiDevServerPlugin(env) {
               let rawBody = '';
               req.on('data', chunk => { rawBody += chunk; });
               req.on('end', async () => {
+                req.rawBody = rawBody;
                 req.body = rawBody;
+                req.query = Object.fromEntries(parsedUrl.searchParams);
                 if (!res.json) {
                   res.json = (data) => {
                     res.setHeader('Content-Type', 'application/json');

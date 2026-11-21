@@ -5,10 +5,15 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  addDoc,
   collection,
   query,
   where,
   getDocs,
+  runTransaction,
+  writeBatch,
+  serverTimestamp,
+  increment,
 } from "firebase/firestore";
 
 // ─── Server-side Firebase Configuration ───────────────────────────────────────
@@ -49,4 +54,19 @@ const firebaseConfig = {
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-export { db, doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs };
+export {
+  db,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  addDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  runTransaction,
+  writeBatch,
+  serverTimestamp,
+  increment,
+};

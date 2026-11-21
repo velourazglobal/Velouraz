@@ -49,7 +49,7 @@ const Checkout = () => {
   const location = useLocation();
 
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("razorpay"); // 'razorpay' | 'cod'
+  const paymentMethod = "razorpay";
   const [orderSuccess, setOrderSuccess] = useState(null);
   const [showMobileSummary, setShowMobileSummary] = useState(false);
 
@@ -278,195 +278,50 @@ const Checkout = () => {
     });
   };
 
-  const executeOrderCreation = async (paymentDetails = {}) => {
-    setLoading(true);
-    try {
-      const cleanEmail = (formData.email || "").trim().toLowerCase();
-
-      // 1. Update product stocks in Firestore
-      const batch = writeBatch(db);
-      for (const item of checkoutItems) {
-        if (item.id && !item.id.startsWith("bs-")) {
-          try {
-            const pRef = doc(db, "products", item.id);
-            const pSnap = await getDoc(pRef);
-            if (pSnap.exists()) {
-              const currentStock = Number(pSnap.data().stock || 0);
-              const newStock = Math.max(0, currentStock - Number(item.quantity || 1));
-              batch.update(pRef, { stock: newStock });
-            }
-          } catch (stkErr) {
-            console.warn("Stock update warning for item:", item.id, stkErr);
-          }
-        }
-      }
-      await batch.commit().catch(e => console.warn("Batch stock commit warning:", e));
-
-      // 2. Associate with logged in user or existing user by email
-      let orderUserId = user?.uid || "guest";
-      if (!user?.uid && cleanEmail) {
-        try {
-          const userQuery = query(collection(db, "users"), where("email", "==", cleanEmail));
-          const userSnap = await getDocs(userQuery);
-          if (!userSnap.empty) {
-            orderUserId = userSnap.docs[0].id;
-          }
-        } catch (uErr) {
-          console.warn("User lookup error:", uErr);
-        }
-      }
-
-      const fullShippingAddress = {
-        name: formData.name,
-        email: cleanEmail,
-        phone: formData.phone,
-        alternatePhone: formData.alternatePhone || "",
-        flat: formData.flat || "",
-        address: formData.address || "",
-        fullAddress: `${formData.flat ? formData.flat + ', ' : ''}${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`,
-        city: formData.city || "",
-        state: formData.state || "",
-        pincode: formData.pincode || "",
-        country: formData.country || "India",
-        type: formData.type || "Home",
-      };
-
-      // 3. Register Order with Shiprocket Logistics (Optional)
-      let shiprocketResult = { shiprocketOrderId: null, awbNumber: null, courierName: null };
+  // Save address to user account if requested
+  const saveAddressToUserProfile = async () => {
+    if (user?.uid && formData.saveToAccount && isNewAddress) {
       try {
-        shiprocketResult = await createShiprocketOrder({
-          customerName: formData.name,
-          email: cleanEmail,
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        let currentSaved = [];
+        if (userSnap.exists() && userSnap.data().savedAddresses) {
+          currentSaved = userSnap.data().savedAddresses;
+        }
+
+        const newAddrObj = {
+          name: formData.name,
           phone: formData.phone,
-          shippingAddress: fullShippingAddress,
-          items: checkoutItems,
-          totalAmount: total,
-          paymentMethod,
-        });
-      } catch (srErr) {
-        console.warn("Shiprocket integration notice:", srErr?.message);
-      }
+          alternatePhone: formData.alternatePhone || "",
+          flat: formData.flat || "",
+          address: formData.address || "",
+          city: formData.city || "",
+          state: formData.state || "",
+          pincode: formData.pincode || "",
+          country: formData.country || "India",
+          type: formData.type || "Home",
+          isDefault: currentSaved.length === 0,
+        };
 
-      const generatedOrderNum = `VLZ-${Math.floor(100000 + Math.random() * 900000)}`;
+        const exists = currentSaved.some(
+          (a) => a.address === newAddrObj.address && a.pincode === newAddrObj.pincode
+        );
+        if (!exists) {
+          currentSaved.push(newAddrObj);
+        }
 
-      const orderData = {
-        orderNumber: generatedOrderNum,
-        userId: orderUserId,
-        customerName: formData.name,
-        email: cleanEmail,
-        phone: formData.phone,
-        alternatePhone: formData.alternatePhone || "",
-        shippingAddress: fullShippingAddress,
-        items: checkoutItems.map(i => ({
-          id: i.id,
-          name: i.name || "Jewellery Item",
-          price: Number(i.price || 0),
-          original_price: Number(i.original_price || i.price || 0),
-          quantity: Number(i.quantity || 1),
-          image: i.image || i.primaryImage || '',
-          size: i.size || null,
-          metal: i.metal || null,
-        })),
-        subtotal,
-        shippingFee,
-        discountAmount,
-        couponDetails: appliedCoupon ? {
-          code: appliedCoupon.code,
-          discountAmount: appliedCoupon.discountAmount,
-        } : null,
-        totalAmount: total,
-        total: total,
-        paymentMethod: paymentMethod || "cod",
-        paymentStatus: paymentMethod === "razorpay" ? "Paid" : "Pending",
-        paymentDetails,
-        orderStatus: "Processing",
-        shiprocketOrderId: shiprocketResult?.shiprocketOrderId || null,
-        trackingNumber: shiprocketResult?.awbNumber || null,
-        courierName: shiprocketResult?.courierName || null,
-        createdAt: serverTimestamp(),
-        orderDate: new Date().toISOString()
-      };
-
-      // 4. Save Order to Firestore orders collection
-      const docRef = await addDoc(collection(db, "orders"), orderData);
-      const finalCreatedOrder = { id: docRef.id, orderId: docRef.id, ...orderData };
-
-      // 5. Send Email Confirmation to Customer & Admin Notification
-      sendOrderEmails(finalCreatedOrder).catch(err => console.error("Order email dispatch error:", err));
-
-      // 6. Save address to account if user logged in
-      if (user?.uid) {
-        try {
-          const userRef = doc(db, "users", user.uid);
-          const userSnap = await getDoc(userRef);
-          let currentSaved = [];
-          if (userSnap.exists() && userSnap.data().savedAddresses) {
-            currentSaved = userSnap.data().savedAddresses;
-          }
-
-          const newAddrObj = {
-            name: formData.name,
-            phone: formData.phone,
-            alternatePhone: formData.alternatePhone || "",
-            flat: formData.flat || "",
-            address: formData.address || "",
-            city: formData.city || "",
-            state: formData.state || "",
-            pincode: formData.pincode || "",
-            country: formData.country || "India",
-            type: formData.type || "Home",
-            isDefault: currentSaved.length === 0
-          };
-
-          if (formData.saveToAccount && isNewAddress) {
-            const exists = currentSaved.some(a => a.address === newAddrObj.address && a.pincode === newAddrObj.pincode);
-            if (!exists) {
-              currentSaved.push(newAddrObj);
-            }
-          }
-
-          await setDoc(userRef, {
+        await setDoc(
+          userRef,
+          {
             defaultAddress: newAddrObj,
             savedAddresses: currentSaved,
-            phone: formData.phone
-          }, { merge: true });
-        } catch (addrErr) {
-          console.warn("Address save error:", addrErr);
-        }
+            phone: formData.phone,
+          },
+          { merge: true }
+        );
+      } catch (addrErr) {
+        console.warn("Address save notice:", addrErr);
       }
-
-      // 7. Clear Shopping Cart & Buy Now State
-      setBuyNowItem(null);
-      if (typeof window !== 'undefined' && window.history?.replaceState) {
-        window.history.replaceState(null, "", window.location.pathname);
-      }
-      if (clearCart) {
-        await clearCart();
-      }
-
-      return finalCreatedOrder;
-    } catch (err) {
-      console.error("Order creation error:", err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePaymentSuccess = async (createdOrder) => {
-    setBuyNowItem(null);
-    if (typeof window !== 'undefined' && window.history?.replaceState) {
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-    if (clearCart) {
-      await clearCart();
-    }
-
-    const orderId = createdOrder?.id || createdOrder?.orderId;
-    if (orderId) {
-      navigate(`/order-success/${orderId}`, { state: { isNewUser: false } });
-    } else {
-      setOrderSuccess(createdOrder);
     }
   };
 
@@ -476,97 +331,154 @@ const Checkout = () => {
   };
 
   const handlePlaceOrder = async (e) => {
-    e.preventDefault();
-    if (!formData.name || !formData.email || !formData.phone || !formData.address || !formData.city || !formData.pincode || !formData.state) {
-      alert("Please fill in all required contact & shipping fields.");
+    if (e) e.preventDefault();
+
+    // Prevent duplicate clicks while payment is initializing or processing
+    if (loading) return;
+
+    const cleanName = (formData.name || "").trim();
+    const cleanEmail = (formData.email || "").trim().toLowerCase();
+    const cleanPhone = (formData.phone || "").replace(/\D/g, "");
+    const cleanAddress = (formData.address || "").trim();
+    const cleanCity = (formData.city || "").trim();
+    const cleanState = (formData.state || "").trim();
+    const cleanPincode = (formData.pincode || "").replace(/\D/g, "");
+
+    // Strict frontend validation before initiating payment
+    if (!cleanName || !cleanEmail || !cleanPhone || !cleanAddress || !cleanCity || !cleanPincode || !cleanState) {
+      alert("Please fill in all required contact and shipping details.");
+      return;
+    }
+
+    if (cleanPhone.length < 10) {
+      alert("Please enter a valid 10-digit mobile phone number.");
+      return;
+    }
+
+    if (cleanPincode.length !== 6) {
+      alert("Please enter a valid 6-digit postal pincode.");
       return;
     }
 
     if (isAnyOutOfStock) {
-      alert("One or more items in your cart are currently out of stock.");
+      alert("One or more items in your cart are currently out of stock. Please adjust quantities.");
       return;
     }
 
     setLoading(true);
 
     try {
-      if (paymentMethod === "razorpay") {
-        const scriptLoaded = await loadRazorpayScript();
-        if (!scriptLoaded) {
-          alert("Razorpay SDK failed to load. Please check your internet connection.");
-          setLoading(false);
-          return;
-        }
-
-        const rzpOrder = await createRazorpayOrder(checkoutItems, discountAmount);
-
-        const options = {
-          key: rzpOrder.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TtLi1EpzfxaU4d",
-          amount: rzpOrder.amount,
-          currency: rzpOrder.currency || "INR",
-          name: "Velouraz Jewellery",
-          description: "Haute Joaillerie Order Payment",
-          image: "/img/logo.png",
-          order_id: rzpOrder.id || rzpOrder.order_id,
-          handler: async function (response) {
-            try {
-              setLoading(true);
-              // Step 3: Verify signature with backend before marking order as paid
-              await verifyRazorpayPayment({
-                order_id: response.razorpay_order_id || rzpOrder.id,
-                payment_id: response.razorpay_payment_id,
-                signature: response.razorpay_signature,
-              });
-
-              // Signature verified successfully -> create & confirm order
-              const createdOrder = await executeOrderCreation({
-                razorpayPaymentId: response.razorpay_payment_id,
-                razorpayOrderId: response.razorpay_order_id || rzpOrder.id,
-                razorpaySignature: response.razorpay_signature,
-                paymentMethod: "razorpay",
-              });
-              await handlePaymentSuccess(createdOrder);
-            } catch (err) {
-              console.error("Payment verification error:", err);
-              alert(err.message || "Payment verification failed. Your order has not been placed.");
-            } finally {
-              setLoading(false);
-            }
-          },
-          prefill: {
-            name: formData.name,
-            email: formData.email,
-            contact: formData.phone,
-          },
-          theme: {
-            color: "#2e0e43",
-          },
-          modal: {
-            ondismiss: function () {
-              setLoading(false);
-              console.log("Razorpay checkout modal dismissed by user.");
-            },
-          },
-        };
-
-        const paymentObject = new window.Razorpay(options);
-
-        paymentObject.on("payment.failed", function (response) {
-          setLoading(false);
-          const errorMsg = response.error?.description || response.error?.reason || "Payment could not be completed.";
-          console.error("Razorpay payment failed:", response.error);
-          alert(`Payment Failed: ${errorMsg}`);
-        });
-
-        paymentObject.open();
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        alert("Razorpay payment gateway failed to load. Please check your internet connection and try again.");
         setLoading(false);
-      } else {
-        const createdOrder = await executeOrderCreation({ paymentMethod: "cod" });
-        await handlePaymentSuccess(createdOrder);
+        return;
       }
+
+      // Step 1: Create secure Razorpay Order on server
+      // Validates stock, calculates prices from database, creates pending order in Firestore
+      const rzpOrder = await createRazorpayOrder({
+        items: checkoutItems,
+        customerDetails: {
+          ...formData,
+          name: cleanName,
+          email: cleanEmail,
+          phone: cleanPhone,
+          address: cleanAddress,
+          city: cleanCity,
+          state: cleanState,
+          pincode: cleanPincode,
+        },
+        couponCode: appliedCoupon?.code || "",
+        userId: user?.uid || null,
+      });
+
+      // Save user address asynchronously
+      saveAddressToUserProfile().catch((err) => console.warn("Address save notice:", err));
+
+      // Step 2: Open Standard Razorpay Checkout Modal
+      const options = {
+        key: rzpOrder.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: rzpOrder.amount,
+        currency: rzpOrder.currency || "INR",
+        name: "Velouraz Jewellery",
+        description: "Haute Joaillerie Express Order",
+        image: "/img/logo.png",
+        order_id: rzpOrder.razorpayOrderId || rzpOrder.order_id,
+        prefill: {
+          name: cleanName,
+          email: cleanEmail,
+          contact: cleanPhone,
+        },
+        notes: {
+          orderNumber: rzpOrder.orderNumber,
+        },
+        theme: {
+          color: "#2e0e43",
+        },
+        handler: async function (response) {
+          try {
+            setLoading(true);
+
+            // Step 3: Backend signature verification & atomic stock deduction
+            const verification = await verifyRazorpayPayment({
+              order_id: response.razorpay_order_id || rzpOrder.razorpayOrderId,
+              payment_id: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+              orderId: rzpOrder.orderId,
+            });
+
+            // Clear shopping bag & buy now session
+            setBuyNowItem(null);
+            if (typeof window !== "undefined" && window.history?.replaceState) {
+              window.history.replaceState(null, "", window.location.pathname);
+            }
+            if (clearCart) {
+              await clearCart();
+            }
+
+            // Store recent order reference in sessionStorage for unauthenticated guest viewing
+            try {
+              sessionStorage.setItem("velouraz_recent_order", rzpOrder.orderId);
+            } catch (storageErr) {
+              // ignore
+            }
+
+            // Step 4: Automatically redirect customer to the existing Orders page
+            navigate(`/orders?success=true&orderId=${rzpOrder.orderId}`, { replace: true });
+          } catch (verifyErr) {
+            console.error("Payment verification failure:", verifyErr);
+            alert(
+              verifyErr.message ||
+                "Payment verification could not be completed. If money was debited from your bank account, it will be automatically confirmed or refunded."
+            );
+            setLoading(false);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+            console.log("Razorpay checkout modal dismissed by customer.");
+          },
+        },
+      };
+
+      const paymentObject = new window.Razorpay(options);
+
+      paymentObject.on("payment.failed", function (failResponse) {
+        setLoading(false);
+        const errorMsg =
+          failResponse.error?.description ||
+          failResponse.error?.reason ||
+          "Payment could not be completed.";
+        console.error("Razorpay payment failed:", failResponse.error);
+        alert(`Payment Failed: ${errorMsg}. Please try another card or UPI account.`);
+      });
+
+      paymentObject.open();
     } catch (err) {
-      console.error("Order submission error:", err);
-      alert(err.message || "Failed to place order. Please try again.");
+      console.error("Express checkout order initiation error:", err);
+      alert(err.message || "Failed to initiate express payment. Please try again.");
       setLoading(false);
     }
   };
@@ -1070,62 +982,32 @@ const Checkout = () => {
 
               <div className="space-y-3">
 
-                {/* Razorpay Online Payment */}
-                <label
-                  onClick={() => setPaymentMethod("razorpay")}
-                  className={`flex items-center justify-between p-4 rounded-xl sm:rounded-2xl border cursor-pointer transition-all duration-300 ${paymentMethod === "razorpay"
-                    ? "bg-[#2e0e43]/5 border-[#2e0e43] ring-1 ring-[#2e0e43] shadow-xs"
-                    : "bg-[#FDFAF5] border-[#D8CBBE] hover:border-[#C8A46A]"
-                    }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="payment"
-                      checked={paymentMethod === "razorpay"}
-                      onChange={() => setPaymentMethod("razorpay")}
-                      className="accent-[#2e0e43] w-4 h-4"
-                    />
-                    <div>
-                      <p className="text-xs sm:text-sm font-semibold text-[#2A2623] uppercase tracking-wider font-sans flex items-center gap-2">
-                        <span>Razorpay Online Payment</span>
-                        <span className="text-[14px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-sans font-normal">Instant</span>
-                      </p>
-                      <p className="text-xs text-[#7B6D63] font-serif">
-                        UPI (GPay, PhonePe), Credit/Debit Cards, NetBanking
-                      </p>
+                {/* Razorpay Online Payment - ONLY PAYMENT METHOD */}
+                <div className="p-4 sm:p-5 rounded-xl sm:rounded-2xl border bg-[#2e0e43]/5 border-[#2e0e43] ring-1 ring-[#2e0e43] shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-5 h-5 rounded-full bg-[#2e0e43] flex items-center justify-center text-white shrink-0">
+                        <Check size={13} />
+                      </div>
+                      <div>
+                        <p className="text-xs sm:text-sm font-semibold text-[#2A2623] uppercase tracking-wider font-sans flex items-center gap-2">
+                          <span>Razorpay Online Payment</span>
+                          <span className="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-sans font-medium">100% Secure & Insured</span>
+                        </p>
+                        <p className="text-xs text-[#7B6D63] font-serif mt-0.5">
+                          Instant Express Checkout with Bank-Grade Encryption
+                        </p>
+                      </div>
                     </div>
+                    <CreditCard size={22} className="text-[#2e0e43] shrink-0 hidden sm:block" />
                   </div>
-                  <CreditCard size={20} className="text-[#2e0e43] shrink-0 hidden sm:block" />
-                </label>
 
-                {/* Cash on Delivery */}
-                <label
-                  onClick={() => setPaymentMethod("cod")}
-                  className={`flex items-center justify-between p-4 rounded-xl sm:rounded-2xl border cursor-pointer transition-all duration-300 ${paymentMethod === "cod"
-                    ? "bg-[#2e0e43]/5 border-[#2e0e43] ring-1 ring-[#2e0e43] shadow-xs"
-                    : "bg-[#FDFAF5] border-[#D8CBBE] hover:border-[#C8A46A]"
-                    }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="payment"
-                      checked={paymentMethod === "cod"}
-                      onChange={() => setPaymentMethod("cod")}
-                      className="accent-[#2e0e43] w-4 h-4"
-                    />
-                    <div>
-                      <p className="text-xs sm:text-sm font-semibold text-[#2A2623] uppercase tracking-wider font-sans">
-                        Cash on Delivery (COD)
-                      </p>
-                      <p className="text-xs text-[#7B6D63] font-serif">
-                        Pay in cash upon doorstep delivery
-                      </p>
-                    </div>
+                  <div className="pt-2.5 border-t border-[#D8CBBE]/40 flex flex-wrap items-center gap-2 text-[11px] font-sans text-[#7B6D63]">
+                    <span className="px-2 py-1 bg-white rounded-md border border-[#D8CBBE]/60 font-semibold text-[#2e0e43]">UPI (GPay / PhonePe / Paytm / CRED)</span>
+                    <span className="px-2 py-1 bg-white rounded-md border border-[#D8CBBE]/60 font-semibold text-[#2e0e43]">Credit & Debit Cards (Visa, MasterCard, RuPay)</span>
+                    <span className="px-2 py-1 bg-white rounded-md border border-[#D8CBBE]/60 font-semibold text-[#2e0e43]">NetBanking (All Banks)</span>
                   </div>
-                  <Truck size={20} className="text-[#C8A46A] shrink-0 hidden sm:block" />
-                </label>
+                </div>
 
               </div>
 

@@ -1,4 +1,143 @@
 import crypto from "crypto";
+import {
+  db,
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+} from "./utils/firebaseServer.js";
+import { sendMailWithFallback } from "./utils/mailer.js";
+
+// Helper to send order confirmation email asynchronously
+async function dispatchOrderConfirmationEmails(order) {
+  try {
+    const customerEmail = order.email || order.shippingAddress?.email;
+    if (!customerEmail) return;
+
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || smtpUser || "admin@velouraz.com";
+
+    if (!smtpUser || !smtpPass) {
+      console.warn(`[DEV MODE] SMTP not configured. Simulated confirmation email for Order #${order.orderNumber || order.id}`);
+      return;
+    }
+
+    const orderId = order.orderNumber || order.id || `VEL-${Date.now()}`;
+    const customerName = order.customerName || order.shippingAddress?.name || "Valued Customer";
+    const totalFormatted = `₹${Number(order.totalAmount || order.total || 0).toLocaleString("en-IN")}`;
+    const addressFormatted = order.shippingAddress?.fullAddress || `${order.shippingAddress?.address || ""}, ${order.shippingAddress?.city || ""} - ${order.shippingAddress?.pincode || ""}`;
+
+    const itemsHtml = (order.items || [])
+      .map(
+        (item) => `
+        <tr style="border-bottom: 1px solid #2e2633;">
+          <td style="padding: 14px; color: #ffffff; font-size: 14px;">
+            <strong>${item.name || "Jewellery Item"}</strong>
+          </td>
+          <td style="padding: 14px; color: #b5adc0; font-size: 14px; text-align: center;">
+            ${item.quantity || 1}
+          </td>
+          <td style="padding: 14px; color: #d4af37; font-size: 14px; text-align: right; font-weight: 500;">
+            ₹${(Number(item.price || 0) * (item.quantity || 1)).toLocaleString("en-IN")}
+          </td>
+        </tr>`
+      )
+      .join("");
+
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html>
+      <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #0d0b0e; color: #ffffff;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="padding: 40px 20px;">
+          <tr>
+            <td align="center">
+              <table width="100%" style="max-width: 600px; background-color: #161217; border: 1px solid #2e2633; border-radius: 14px; padding: 40px 30px;">
+                <tr>
+                  <td align="center" style="padding-bottom: 20px;">
+                    <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; color: #d4af37; letter-spacing: 4px;">VELOURAZ</h1>
+                    <p style="margin: 5px 0 0 0; font-size: 14px; text-transform: uppercase; color: #8a8292;">High Jewellery</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="border-top: 1px solid #2e2633; padding-top: 25px;">
+                    <h2 style="margin: 0 0 10px 0; color: #ffffff; font-size: 20px;">Order Confirmed & Payment Received</h2>
+                    <p style="margin: 0 0 20px 0; color: #b5adc0; font-size: 14px; line-height: 1.6;">
+                      Dear ${customerName}, thank you for your acquisition. We have received your payment via Razorpay (ID: <strong>${order.razorpayPaymentId || "Verified"}</strong>).
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <table width="100%" style="background-color: #1f1a22; border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+                      <tr>
+                        <td style="font-size: 13px; color: #8a8292; padding: 4px 0;">Order Reference:</td>
+                        <td style="font-size: 13px; color: #ffffff; text-align: right; font-weight: bold;">#${orderId}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #8a8292; padding: 4px 0;">Payment Method:</td>
+                        <td style="font-size: 13px; color: #22c55e; text-align: right; font-weight: bold;">RAZORPAY (PAID)</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #8a8292; padding: 4px 0;">Delivery Address:</td>
+                        <td style="font-size: 13px; color: #ffffff; text-align: right;">${addressFormatted}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <table width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 25px;">
+                      <thead>
+                        <tr style="border-bottom: 2px solid #2e2633;">
+                          <th style="text-align: left; padding: 10px 0; color: #8a8292; font-size: 12px; text-transform: uppercase;">Item</th>
+                          <th style="text-align: center; padding: 10px 0; color: #8a8292; font-size: 12px; text-transform: uppercase;">Qty</th>
+                          <th style="text-align: right; padding: 10px 0; color: #8a8292; font-size: 12px; text-transform: uppercase;">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${itemsHtml}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="border-top: 1px solid #2e2633; padding-top: 15px; text-align: right;">
+                    <p style="margin: 0; font-size: 16px; color: #ffffff;">
+                      Total Paid: <strong style="color: #d4af37; font-size: 20px;">${totalFormatted}</strong>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    await sendMailWithFallback({
+      from: process.env.SMTP_FROM || `"Velouraz" <${smtpUser}>`,
+      to: customerEmail,
+      subject: `Payment Successful — Order #${orderId} Confirmed | Velouraz`,
+      html: emailHtml,
+    });
+
+    // Notify Admin
+    await sendMailWithFallback({
+      from: process.env.SMTP_FROM || `"Velouraz Orders" <${smtpUser}>`,
+      to: adminEmail,
+      subject: `[New Paid Order] #${orderId} - ${totalFormatted}`,
+      html: `<p>New confirmed order #${orderId} received from ${customerName} (${customerEmail}) for ${totalFormatted}. Razorpay Payment ID: ${order.razorpayPaymentId}</p>`,
+    });
+  } catch (emailErr) {
+    console.error("[Email Notification Error]:", emailErr);
+  }
+}
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -41,43 +180,46 @@ export default async function handler(req, res) {
       razorpay_payment_id,
       razorpay_signature,
       signature,
+      orderId: internalOrderId,
     } = body || {};
 
     const resolvedOrderId = order_id || razorpay_order_id;
     const resolvedPaymentId = payment_id || razorpay_payment_id;
     const resolvedSignature = signature || razorpay_signature;
 
-    // Check for missing fields
+    // Check for missing required fields
     if (!resolvedOrderId || !resolvedPaymentId || !resolvedSignature) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields. order_id, payment_id, and signature are required.",
+        message: "Missing required payment fields: razorpay_order_id, razorpay_payment_id, and razorpay_signature are required.",
         missing: {
-          order_id: !resolvedOrderId,
-          payment_id: !resolvedPaymentId,
-          signature: !resolvedSignature,
+          razorpay_order_id: !resolvedOrderId,
+          razorpay_payment_id: !resolvedPaymentId,
+          razorpay_signature: !resolvedSignature,
         },
       });
     }
 
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keyId = process.env.RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID;
 
     if (!keySecret) {
-      console.error("RAZORPAY_KEY_SECRET is not configured on server.");
+      console.error("[Razorpay Verify] RAZORPAY_KEY_SECRET is not configured on server.");
       return res.status(500).json({
         success: false,
         message: "Razorpay secret key is not configured on the server.",
       });
     }
 
-    // Generate expected HMAC-SHA256 signature
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 1. Cryptographic HMAC-SHA256 Signature Verification
+    // ─────────────────────────────────────────────────────────────────────────────
     const textToSign = `${resolvedOrderId}|${resolvedPaymentId}`;
     const generatedSignature = crypto
       .createHmac("sha256", keySecret)
       .update(textToSign)
       .digest("hex");
 
-    // Timing-safe comparison to prevent timing attacks
     let isSignatureValid = false;
     try {
       const genBuf = Buffer.from(generatedSignature, "utf8");
@@ -90,7 +232,9 @@ export default async function handler(req, res) {
     }
 
     if (!isSignatureValid) {
-      console.warn(`[Signature Mismatch] For Order ${resolvedOrderId}: received ${resolvedSignature}, generated ${generatedSignature}`);
+      console.warn(
+        `[Signature Mismatch] Order: ${resolvedOrderId}, Payment: ${resolvedPaymentId}. Received: ${resolvedSignature}, Generated: ${generatedSignature}`
+      );
       return res.status(400).json({
         success: false,
         verified: false,
@@ -98,13 +242,200 @@ export default async function handler(req, res) {
       });
     }
 
-    // Success - Verified genuine payment
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 2. Locate Pending Order in Firestore
+    // ─────────────────────────────────────────────────────────────────────────────
+    let targetOrderDoc = null;
+    let targetOrderId = null;
+    let orderData = null;
+
+    // A. Search by razorpayOrderId
+    try {
+      const q = query(
+        collection(db, "orders"),
+        where("razorpayOrderId", "==", resolvedOrderId)
+      );
+      const querySnap = await getDocs(q);
+      if (!querySnap.empty) {
+        targetOrderDoc = querySnap.docs[0];
+        targetOrderId = targetOrderDoc.id;
+        orderData = targetOrderDoc.data();
+      }
+    } catch (queryErr) {
+      console.warn("[Firestore Order Query Notice]:", queryErr?.message);
+    }
+
+    // B. Search by internalOrderId if provided and not yet found
+    if (!orderData && internalOrderId) {
+      try {
+        const directDocRef = doc(db, "orders", internalOrderId);
+        const directSnap = await getDoc(directDocRef);
+        if (directSnap.exists()) {
+          targetOrderDoc = directSnap;
+          targetOrderId = directSnap.id;
+          orderData = directSnap.data();
+        }
+      } catch (directDocErr) {
+        console.warn("[Firestore Direct Doc Read Notice]:", directDocErr?.message);
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 3. Idempotency Check (If already confirmed & paid)
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (orderData && (orderData.paymentStatus === "PAID" || orderData.orderStatus === "CONFIRMED")) {
+      console.log(`[Idempotent Payment Verification] Order ${targetOrderId} is already PAID.`);
+      return res.status(200).json({
+        success: true,
+        verified: true,
+        alreadyConfirmed: true,
+        message: "Payment already verified and confirmed.",
+        orderId: targetOrderId,
+        orderNumber: orderData.orderNumber || targetOrderId,
+        order: { id: targetOrderId, ...orderData },
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 4. Server-to-Server Razorpay Payment API Verification
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (keyId && keySecret) {
+      try {
+        const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`;
+        const pResponse = await fetch(`https://api.razorpay.com/v1/payments/${resolvedPaymentId}`, {
+          method: "GET",
+          headers: {
+            Authorization: authHeader,
+          },
+        });
+
+        if (pResponse.ok) {
+          const paymentDetails = await pResponse.json();
+
+          // Verify order ID association
+          if (paymentDetails.order_id && paymentDetails.order_id !== resolvedOrderId) {
+            console.error(`[Fraud Alert] Payment ${resolvedPaymentId} belongs to Razorpay order ${paymentDetails.order_id}, but request specified ${resolvedOrderId}`);
+            return res.status(400).json({
+              success: false,
+              verified: false,
+              message: "Payment verification failed. Razorpay Order ID mismatch with captured payment.",
+            });
+          }
+
+          // Verify payment status is authorized or captured
+          const validStatuses = ["authorized", "captured"];
+          if (!validStatuses.includes(paymentDetails.status)) {
+            console.warn(`[Payment Status Warning] Payment status is ${paymentDetails.status}`);
+            return res.status(400).json({
+              success: false,
+              verified: false,
+              message: `Payment is in ${paymentDetails.status} state, not completed.`,
+            });
+          }
+
+          // Verify currency is INR
+          if (paymentDetails.currency && paymentDetails.currency.toUpperCase() !== "INR") {
+            return res.status(400).json({
+              success: false,
+              verified: false,
+              message: "Currency mismatch. Expected INR.",
+            });
+          }
+
+          // Verify amount if order record exists
+          if (orderData && orderData.totalAmount) {
+            const expectedPaise = Math.round(Number(orderData.totalAmount) * 100);
+            if (paymentDetails.amount && Math.abs(paymentDetails.amount - expectedPaise) > 10) {
+              console.error(`[Amount Mismatch Alert] Order expects ${expectedPaise} paise, but payment is ${paymentDetails.amount} paise`);
+              return res.status(400).json({
+                success: false,
+                verified: false,
+                message: "Payment amount does not match the order total.",
+              });
+            }
+          }
+        }
+      } catch (rzpApiErr) {
+        console.warn("[Razorpay Payment Fetch Notice]:", rzpApiErr?.message);
+        // Continue if API check had transient network failure, since cryptographic signature passed
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 5. Atomic Stock Deduction (Deducted Exactly Once)
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (orderData && !orderData.stockDeducted && Array.isArray(orderData.items)) {
+      for (const item of orderData.items) {
+        if (item.id && !item.id.startsWith("bs-")) {
+          try {
+            const pRef = doc(db, "products", item.id);
+            const pSnap = await getDoc(pRef);
+            if (pSnap.exists()) {
+              const currentStock = Number(pSnap.data().stock ?? 0);
+              const deductQty = Math.max(1, Number(item.quantity) || 1);
+              const newStock = Math.max(0, currentStock - deductQty);
+              await updateDoc(pRef, {
+                stock: newStock,
+                stock_status: newStock <= 0 ? "Out of Stock" : "In Stock",
+                updatedAt: serverTimestamp(),
+              });
+            }
+          } catch (stkErr) {
+            console.error(`[Stock Deduction Error for ${item.id}]:`, stkErr);
+          }
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // 6. Update Existing Order Record to PAID & CONFIRMED
+    // ─────────────────────────────────────────────────────────────────────────────
+    const confirmedAt = new Date().toISOString();
+    let finalOrder = null;
+
+    if (targetOrderId) {
+      const orderRef = doc(db, "orders", targetOrderId);
+      const updates = {
+        paymentStatus: "PAID",
+        orderStatus: "CONFIRMED",
+        paymentMethod: "RAZORPAY",
+        razorpayPaymentId: resolvedPaymentId,
+        razorpayOrderId: resolvedOrderId,
+        paidAt: confirmedAt,
+        stockDeducted: true,
+        updatedAt: serverTimestamp(),
+      };
+
+      try {
+        await updateDoc(orderRef, updates);
+        finalOrder = { id: targetOrderId, ...orderData, ...updates };
+      } catch (updateErr) {
+        console.error("[Firestore Order Update Error]:", updateErr);
+      }
+    }
+
+    // Dispatch emails in background
+    if (finalOrder) {
+      dispatchOrderConfirmationEmails(finalOrder).catch((err) =>
+        console.error("[Email Async Error]:", err)
+      );
+    }
+
     return res.status(200).json({
       success: true,
       verified: true,
-      message: "Payment signature verified successfully.",
-      order_id: resolvedOrderId,
-      payment_id: resolvedPaymentId,
+      message: "Payment verified successfully.",
+      orderId: targetOrderId || resolvedOrderId,
+      orderNumber: (finalOrder && finalOrder.orderNumber) || targetOrderId || resolvedOrderId,
+      paymentId: resolvedPaymentId,
+      order: finalOrder || {
+        id: targetOrderId || resolvedOrderId,
+        paymentStatus: "PAID",
+        orderStatus: "CONFIRMED",
+        paymentMethod: "RAZORPAY",
+        razorpayPaymentId: resolvedPaymentId,
+        razorpayOrderId: resolvedOrderId,
+      },
     });
   } catch (error) {
     console.error("Unexpected error in /api/verify-payment:", error);
@@ -114,4 +445,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

@@ -56,6 +56,25 @@ All credentials must be added to Vercel Dashboard — never commit `.env` to Git
 | `VITE_RAZORPAY_KEY_ID` | Razorpay Dashboard → Settings → API Keys |
 | `RAZORPAY_KEY_ID` | Same as VITE_RAZORPAY_KEY_ID |
 | `RAZORPAY_KEY_SECRET` | Razorpay Dashboard → Settings → API Keys |
+| `RAZORPAY_WEBHOOK_SECRET` | Razorpay Dashboard → Settings → Webhooks |
+
+---
+
+## Razorpay Dashboard Webhook Configuration
+
+To receive real-time server-to-server notifications and guarantee reliable order confirmation even if a customer closes their browser before redirection:
+
+1. Log in to the [Razorpay Dashboard](https://dashboard.razorpay.com).
+2. Go to **Settings** → **Webhooks** → click **Add New Webhook**.
+3. Set the **Webhook URL**:
+   `https://www.velouraz.in/api/razorpay-webhook`
+4. Set the **Secret**:
+   Enter a secure secret string (or your Key Secret), and add it as `RAZORPAY_WEBHOOK_SECRET` in your Vercel Environment Variables.
+5. Select the following **Active Events**:
+   - `payment.captured`
+   - `payment.failed`
+   - `order.paid`
+6. Click **Save** to enable the webhook.
 
 ### Security
 | Variable | How to generate |

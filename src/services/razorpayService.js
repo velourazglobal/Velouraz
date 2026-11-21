@@ -39,22 +39,31 @@ export const loadRazorpayScript = () => {
 
 /**
  * Step 1: Calls backend endpoint to create an order
- * @param {Object} params
- * @param {number} params.amount Amount in paise (minimum 100 paise)
- * @param {string} [params.currency='INR'] Currency code
- * @param {string} [params.receipt] Unique receipt identifier
- * @param {Object} [params.notes] Metadata key-values
- * @returns {Promise<{ order_id: string, amount: number, currency: string, key_id: string }>}
+ * Accepts either:
+ * A) { items, customerDetails, couponCode, userId } for secure server calculation and pending order creation
+ * B) { amount, currency, receipt, notes } for raw amount calls
  */
-export const createRazorpayOrder = async ({
-  amount,
-  currency = "INR",
-  receipt,
-  notes = {},
-}) => {
-  const numericAmount = Math.round(Number(amount));
-  if (!numericAmount || isNaN(numericAmount) || numericAmount < 100) {
-    throw new Error("Amount must be at least 100 paise (₹1).");
+export const createRazorpayOrder = async (payload) => {
+  let requestBody = {};
+
+  if (payload.items && payload.customerDetails) {
+    requestBody = {
+      items: payload.items,
+      customerDetails: payload.customerDetails,
+      couponCode: payload.couponCode || "",
+      userId: payload.userId || null,
+    };
+  } else {
+    const numericAmount = Math.round(Number(payload.amount));
+    if (!numericAmount || isNaN(numericAmount) || numericAmount < 100) {
+      throw new Error("Amount must be at least 100 paise (₹1).");
+    }
+    requestBody = {
+      amount: numericAmount,
+      currency: payload.currency || "INR",
+      receipt: payload.receipt || `rcpt_${Date.now()}`,
+      notes: payload.notes || {},
+    };
   }
 
   const response = await fetch("/api/create-order", {
@@ -62,12 +71,7 @@ export const createRazorpayOrder = async ({
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      amount: numericAmount,
-      currency,
-      receipt: receipt || `rcpt_${Date.now()}`,
-      notes,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   const data = await response.json();
@@ -77,10 +81,14 @@ export const createRazorpayOrder = async ({
   }
 
   return {
-    order_id: data.order_id || data.orderId,
+    order_id: data.razorpayOrderId || data.order_id || data.orderId,
+    orderId: data.orderId || data.id,
+    orderNumber: data.orderNumber || data.receipt,
+    razorpayOrderId: data.razorpayOrderId || data.order_id || data.orderId,
     amount: data.amount,
-    currency: data.currency,
-    key_id: data.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID,
+    currency: data.currency || "INR",
+    key_id: data.key_id || data.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+    keyId: data.keyId || data.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID,
   };
 };
 
@@ -90,14 +98,23 @@ export const createRazorpayOrder = async ({
  * @param {string} params.order_id Razorpay Order ID
  * @param {string} params.payment_id Razorpay Payment ID
  * @param {string} params.signature Razorpay generated signature
- * @returns {Promise<{ success: boolean, verified: boolean, message: string }>}
+ * @param {string} [params.orderId] Internal Order Document ID
+ * @returns {Promise<{ success: boolean, verified: boolean, message: string, order: Object }>}
  */
 export const verifyRazorpayPayment = async ({
   order_id,
   payment_id,
   signature,
+  orderId,
+  razorpay_order_id,
+  razorpay_payment_id,
+  razorpay_signature,
 }) => {
-  if (!order_id || !payment_id || !signature) {
+  const resolvedOrderId = order_id || razorpay_order_id;
+  const resolvedPaymentId = payment_id || razorpay_payment_id;
+  const resolvedSignature = signature || razorpay_signature;
+
+  if (!resolvedOrderId || !resolvedPaymentId || !resolvedSignature) {
     throw new Error("Missing payment credentials for signature verification.");
   }
 
@@ -107,12 +124,13 @@ export const verifyRazorpayPayment = async ({
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      order_id,
-      payment_id,
-      signature,
-      razorpay_order_id: order_id,
-      razorpay_payment_id: payment_id,
-      razorpay_signature: signature,
+      order_id: resolvedOrderId,
+      payment_id: resolvedPaymentId,
+      signature: resolvedSignature,
+      razorpay_order_id: resolvedOrderId,
+      razorpay_payment_id: resolvedPaymentId,
+      razorpay_signature: resolvedSignature,
+      orderId: orderId || null,
     }),
   });
 
@@ -131,6 +149,7 @@ export const verifyRazorpayPayment = async ({
  */
 export const launchRazorpayCheckout = async ({
   order_id,
+  orderId,
   amount,
   currency = "INR",
   key_id,
@@ -154,8 +173,7 @@ export const launchRazorpayCheckout = async ({
 
   const razorpayKey =
     key_id ||
-    import.meta.env.VITE_RAZORPAY_KEY_ID ||
-    "rzp_test_TtLi1EpzfxaU4d";
+    import.meta.env.VITE_RAZORPAY_KEY_ID;
 
   const options = {
     key: razorpayKey,
@@ -179,6 +197,7 @@ export const launchRazorpayCheckout = async ({
           order_id: response.razorpay_order_id || order_id,
           payment_id: response.razorpay_payment_id,
           signature: response.razorpay_signature,
+          orderId,
         });
 
         if (onSuccess) {
@@ -189,6 +208,9 @@ export const launchRazorpayCheckout = async ({
             signature: response.razorpay_signature,
             verified: true,
             verification,
+            order: verification.order,
+            orderId: verification.orderId || orderId,
+            orderNumber: verification.orderNumber,
           });
         }
       } catch (verifyErr) {

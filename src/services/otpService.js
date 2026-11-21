@@ -1,6 +1,6 @@
 import { db } from "../components/Firebase";
 import { collection, query, where, getDocs, writeBatch } from "firebase/firestore";
-export { verifyRazorpayPayment, loadRazorpayScript } from "./razorpayService";
+export { verifyRazorpayPayment, loadRazorpayScript, createRazorpayOrder } from "./razorpayService";
 
 /**
  * Velouraz OTP & Authentication Service
@@ -118,44 +118,6 @@ export const verifyOtp = async (email, otp, orderId = null, displayName = "") =>
   return data;
 };
 
-/**
- * Creates Razorpay Order via /api/create-order
- */
-export const createRazorpayOrder = async (items, discountAmount = 0) => {
-  const subtotal = items.reduce((sum, i) => sum + (Number(i.price || 0) * (i.quantity || 1)), 0);
-  const shipping = subtotal >= 1999 || subtotal === 0 ? 0 : 99;
-  const total = Math.max(0, subtotal + shipping - discountAmount);
-  const amountInPaise = Math.round(total * 100);
-
-  try {
-    const res = await fetch("/api/create-order", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount: amountInPaise,
-        currency: "INR",
-        receipt: `rcpt_${Date.now()}`,
-      }),
-    });
-
-    const data = await res.json();
-    if (res.ok && data.success) {
-      return {
-        id: data.order_id || data.orderId,
-        order_id: data.order_id || data.orderId,
-        orderId: data.order_id || data.orderId,
-        amount: data.amount || amountInPaise,
-        currency: data.currency || "INR",
-        keyId: data.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_TtLi1EpzfxaU4d",
-      };
-    }
-
-    throw new Error(data.message || "Failed to create Razorpay order.");
-  } catch (e) {
-    console.error("Razorpay order creation error:", e?.message);
-    throw e;
-  }
-};
 
 /**
  * Verifies Razorpay Payment & Creates Order

@@ -24,6 +24,9 @@ const Orders = () => {
 
   // Params
   const queryId = searchParams.get("id") || searchParams.get("track") || routeId || "";
+  const queryOrderId = searchParams.get("orderId") || searchParams.get("id") || "";
+  const isPaymentSuccess = searchParams.get("success") === "true";
+  const [successBannerDismissed, setSuccessBannerDismissed] = useState(false);
   const initialTab = searchParams.get("tab") === "tracking" || Boolean(queryId) ? "tracking" : "history";
 
   const [activeTabMode, setActiveTabMode] = useState(initialTab); // 'history' | 'tracking'
@@ -57,26 +60,29 @@ const Orders = () => {
   const [trackingInfo, setTrackingInfo] = useState(null);
   const [trackingError, setTrackingError] = useState("");
 
-  // Load User Orders from Firestore with Live Real-time Subscription
+  // Load User and/or Guest Orders from Firestore with Live Real-time Subscription
   useEffect(() => {
-    if (!user) {
+    let recentGuestOrderId = "";
+    try {
+      recentGuestOrderId = sessionStorage.getItem("velouraz_recent_order") || "";
+    } catch (e) {
+      // ignore
+    }
+
+    const targetLookupId = queryOrderId || recentGuestOrderId;
+
+    if (!user && !targetLookupId) {
       navigate("/login");
       return;
     }
 
     setLoading(true);
-    const cleanEmail = (user?.email || "").trim().toLowerCase();
-    if (user?.uid && cleanEmail) {
-      syncUserGuestOrders(user.uid, cleanEmail).catch((syncErr) => {
-        console.warn("Guest order sync notice:", syncErr);
-      });
-    }
 
     const ordersRef = collection(db, "orders");
 
     const parseOrderDate = (val) => {
       if (!val) return 0;
-      if (typeof val === 'number') return val;
+      if (typeof val === "number") return val;
       if (val?.seconds) return val.seconds * 1000;
       const parsed = new Date(val).getTime();
       return isNaN(parsed) ? 0 : parsed;
@@ -84,14 +90,52 @@ const Orders = () => {
 
     let mapUserId = new Map();
     let mapEmail = new Map();
+    let mapDirect = new Map();
 
     const combineAndSetOrders = () => {
-      const combinedMap = new Map([...mapUserId, ...mapEmail]);
+      const combinedMap = new Map([...mapDirect, ...mapUserId, ...mapEmail]);
       const list = Array.from(combinedMap.values());
-      list.sort((a, b) => parseOrderDate(b.createdAt) - parseOrderDate(a.createdAt));
+      list.sort((a, b) => {
+        // Keep newly created order at top if targetLookupId matches
+        if (targetLookupId && (a.id === targetLookupId || a.orderId === targetLookupId)) return -1;
+        if (targetLookupId && (b.id === targetLookupId || b.orderId === targetLookupId)) return 1;
+        return parseOrderDate(b.createdAt) - parseOrderDate(a.createdAt);
+      });
       setOrders(list);
       setLoading(false);
     };
+
+    // If a direct target order ID is provided (e.g. from checkout redirect), subscribe directly
+    let unsubDirect = () => {};
+    if (targetLookupId) {
+      const directRef = doc(db, "orders", targetLookupId);
+      unsubDirect = onSnapshot(
+        directRef,
+        (snap) => {
+          if (snap.exists()) {
+            mapDirect.set(snap.id, { id: snap.id, ...snap.data() });
+            combineAndSetOrders();
+          }
+        },
+        (err) => {
+          console.warn("Direct order subscription notice:", err);
+          if (!user) setLoading(false);
+        }
+      );
+    }
+
+    if (!user) {
+      return () => {
+        unsubDirect();
+      };
+    }
+
+    const cleanEmail = (user?.email || "").trim().toLowerCase();
+    if (user?.uid && cleanEmail) {
+      syncUserGuestOrders(user.uid, cleanEmail).catch((syncErr) => {
+        console.warn("Guest order sync notice:", syncErr);
+      });
+    }
 
     // Real-time Query 1: by userId
     const q1 = query(ordersRef, where("userId", "==", user.uid));
@@ -130,10 +174,11 @@ const Orders = () => {
     }
 
     return () => {
+      unsubDirect();
       unsub1();
       unsub2();
     };
-  }, [user, navigate]);
+  }, [user, navigate, queryOrderId]);
 
   // Handle Shiprocket Live Tracking Lookup
   const handleTrackLookup = async (targetCode) => {
@@ -255,8 +300,7 @@ const Orders = () => {
     if (!matchesSearch) return false;
 
     if (statusFilter === "all") return true;
-    if (statusFilter === "paid") return order.paymentStatus?.toLowerCase().includes("paid") || order.paymentMethod?.toLowerCase().includes("razorpay");
-    if (statusFilter === "cod") return order.paymentMethod?.toLowerCase().includes("cod");
+    if (statusFilter === "paid") return (order.paymentStatus || "").toLowerCase().includes("paid") || (order.paymentMethod || "").toLowerCase().includes("razorpay");
     return true;
   });
 
@@ -343,8 +387,7 @@ const Orders = () => {
               <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 {[
                   { id: "all", label: "All Purchases" },
-                  { id: "paid", label: "Paid Online" },
-                  { id: "cod", label: "Cash on Delivery" },
+                  { id: "paid", label: "Paid Online (Razorpay)" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -376,47 +419,115 @@ const Orders = () => {
 
         {/* MODE 1: ACQUISITION HISTORY LIST */}
         {activeTabMode === "history" && (
-          filteredOrders.length > 0 ? (
-            <div className="space-y-6">
-              {filteredOrders.map((order) => (
-                <motion.div
-                  key={order.id}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white rounded-3xl border border-[#E5D7C5] p-6 sm:p-8 shadow-xs space-y-6 hover:border-[#C8A46A] transition-all duration-300"
-                >
-                  {/* Order Card Header */}
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-[#E5D7C5] pb-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[14px] font-bold uppercase tracking-widest text-[#786C60] font-sans">
-                          Order Reference
-                        </span>
-                        <span className="px-3 py-0.5 bg-[#14111E] text-[#FBF9F5] text-[14px] font-bold uppercase tracking-wider rounded-full font-sans border border-[#C8A46A]/30">
-                          {order.orderStatus || order.paymentStatus || "Paid"}
-                        </span>
-                      </div>
-                      <p className="text-sm font-bold font-mono text-[#14111E]">#{order.id}</p>
+          <>
+            {/* PAYMENT SUCCESS CELEBRATION CONFIRMATION BANNER */}
+            {isPaymentSuccess && !successBannerDismissed && orders.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-3xl border-2 border-emerald-500/50 p-6 sm:p-8 shadow-xl space-y-5 relative overflow-hidden mb-6"
+              >
+                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-[#C8A46A] to-emerald-600" />
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shrink-0">
+                      <CheckCircle2 size={26} />
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-6 text-xs text-[#786C60] font-sans">
-                      <div>
-                        <p className="text-[14px] uppercase font-bold text-[#786C60] tracking-wider">Order Date</p>
-                        <p className="font-semibold text-[#14111E] mt-0.5">
-                          {new Date(order.createdAt?.seconds * 1000 || order.orderDate || Date.now()).toLocaleDateString("en-IN", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </p>
-                      </div>
-                      <div className="h-6 w-px bg-[#E5D7C5] hidden sm:block" />
-                      <div>
-                        <p className="text-[14px] uppercase font-bold text-[#786C60] tracking-wider">Payment Method</p>
-                        <p className="font-semibold text-[#14111E] uppercase mt-0.5">{order.paymentMethod || "Online"}</p>
-                      </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-emerald-700 font-sans block">
+                        Payment Verified & Confirmed
+                      </span>
+                      <h2 className="font-serif text-2xl sm:text-3xl text-[#14111E]">Thank You for Your Order!</h2>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setSuccessBannerDismissed(true)}
+                    className="self-end sm:self-center p-2 text-gray-400 hover:text-black rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    title="Dismiss confirmation"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Newly Placed Order Highlights */}
+                {orders[0] && (
+                  <div className="bg-[#FAF6F0] rounded-2xl p-5 border border-[#E5D7C5] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs font-sans">
+                    <div>
+                      <span className="text-[#786C60] uppercase font-bold tracking-wider text-[11px] block">Order Reference</span>
+                      <p className="font-mono font-bold text-[#14111E] text-sm mt-0.5">#{orders[0].orderNumber || orders[0].id}</p>
+                    </div>
+                    <div>
+                      <span className="text-[#786C60] uppercase font-bold tracking-wider text-[11px] block">Razorpay Payment ID</span>
+                      <p className="font-mono font-bold text-emerald-700 text-sm mt-0.5">{orders[0].razorpayPaymentId || "Captured"}</p>
+                    </div>
+                    <div>
+                      <span className="text-[#786C60] uppercase font-bold tracking-wider text-[11px] block">Payment Status</span>
+                      <span className="inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        PAID
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[#786C60] uppercase font-bold tracking-wider text-[11px] block">Total Amount Paid</span>
+                      <p className="font-sans font-bold text-[#14111E] text-sm mt-0.5">₹{Number(orders[0].totalAmount || orders[0].total || 0).toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {filteredOrders.length > 0 ? (
+              <div className="space-y-6">
+                {filteredOrders.map((order) => (
+                  <motion.div
+                    key={order.id}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-3xl border border-[#E5D7C5] p-6 sm:p-8 shadow-xs space-y-6 hover:border-[#C8A46A] transition-all duration-300"
+                  >
+                    {/* Order Card Header */}
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-[#E5D7C5] pb-4">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[14px] font-bold uppercase tracking-widest text-[#786C60] font-sans">
+                            Order Reference
+                          </span>
+                          <span className="px-3 py-0.5 bg-[#14111E] text-[#FBF9F5] text-[12px] font-bold uppercase tracking-wider rounded-full font-sans border border-[#C8A46A]/30">
+                            {order.orderStatus || "CONFIRMED"}
+                          </span>
+                          <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold uppercase tracking-wider rounded-full font-sans">
+                            {order.paymentStatus || "PAID"}
+                          </span>
+                          {order.razorpayPaymentId && (
+                            <span className="px-2.5 py-0.5 bg-[#F6F2EC] text-[#2e0e43] border border-[#E5D7C5] text-[11px] font-mono font-semibold rounded-full hidden sm:inline">
+                              Pay ID: {order.razorpayPaymentId}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-bold font-mono text-[#14111E]">#{order.orderNumber || order.id}</p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-6 text-xs text-[#786C60] font-sans">
+                        <div>
+                          <p className="text-[14px] uppercase font-bold text-[#786C60] tracking-wider">Order Date</p>
+                          <p className="font-semibold text-[#14111E] mt-0.5">
+                            {new Date(order.createdAt?.seconds * 1000 || order.orderDate || Date.now()).toLocaleDateString("en-IN", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </p>
+                        </div>
+                        <div className="h-6 w-px bg-[#E5D7C5] hidden sm:block" />
+                        <div>
+                          <p className="text-[14px] uppercase font-bold text-[#786C60] tracking-wider">Payment Method</p>
+                          <p className="font-semibold text-emerald-800 uppercase mt-0.5 flex items-center gap-1">
+                            <CheckCircle2 size={13} className="text-emerald-600" />
+                            {order.paymentMethod || "RAZORPAY"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
                   {/* Items List */}
                   <div className="space-y-3">
@@ -506,8 +617,9 @@ const Orders = () => {
                 Explore Boutique Catalogue
               </Link>
             </div>
-          )
-        )}
+          )}
+        </>
+      )}
 
         {/* MODE 2: SHIPROCKET LIVE TRACKER PAGE */}
         {activeTabMode === "tracking" && (

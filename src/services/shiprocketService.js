@@ -50,7 +50,7 @@ export const createShiprocketOrder = async (orderData) => {
       units: item.quantity || 1,
       selling_price: item.price || 0,
     })),
-    payment_method: orderData.paymentMethod === "cod" ? "COD" : "Prepaid",
+    payment_method: "Prepaid",
     sub_total: orderData.totalAmount || orderData.subtotal || 0,
     length: 15,
     breadth: 15,
