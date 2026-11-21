@@ -6,7 +6,7 @@ import {
   collection,
   getDocs,
   serverTimestamp,
-} from "./utils/firebaseServer.js";
+} from "../server-utils/firebaseServer.js";
 
 // Default coupons fallback matching couponService.js
 const DEFAULT_COUPONS = [

@@ -70,3 +70,4 @@ export const sendMailWithFallback = async (mailOptions) => {
 export const transporter = {
   sendMail: sendMailWithFallback,
 };
+

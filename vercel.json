@@ -5,6 +5,34 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/api/create-razorpay-order",
+      "destination": "/api/create-order"
+    },
+    {
+      "source": "/api/order-status",
+      "destination": "/api/verify-payment"
+    },
+    {
+      "source": "/api/send-otp",
+      "destination": "/api/otp?action=send"
+    },
+    {
+      "source": "/api/verify-otp",
+      "destination": "/api/otp?action=verify"
+    },
+    {
+      "source": "/api/send-order-email",
+      "destination": "/api/send-email?type=order"
+    },
+    {
+      "source": "/api/send-admin-credentials",
+      "destination": "/api/send-email?type=admin"
+    },
+    {
+      "source": "/api/cloudinary/delete",
+      "destination": "/api/cloudinary-delete"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

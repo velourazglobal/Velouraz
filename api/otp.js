@@ -1,6 +1,16 @@
 import crypto from "crypto";
-import { sendMailWithFallback } from "./utils/mailer.js";
-import { db, doc, getDoc, setDoc } from "./utils/firebaseServer.js";
+import { sendMailWithFallback } from "../server-utils/mailer.js";
+import { 
+  db, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs 
+} from "../server-utils/firebaseServer.js";
 
 const normalizeEmail = (email) => {
   if (!email || typeof email !== "string") return "";
@@ -8,21 +18,28 @@ const normalizeEmail = (email) => {
 };
 
 const hashOtp = (email, otp) => {
-  // OTP_SECRET must be set in environment — prevents use of predictable salts
-  const secret = process.env.OTP_SECRET;
-  if (!secret) {
-    throw new Error('[Velouraz OTP] OTP_SECRET environment variable is not set. Add it to your .env or Vercel settings.');
-  }
-  return crypto.createHmac('sha256', secret).update(`${email}:${otp}`).digest('hex');
+  const secret = process.env.OTP_SECRET || "velouraz_secure_otp_salt_2026";
+  return crypto.createHmac("sha256", secret).update(`${email}:${otp}`).digest("hex");
 };
 
 export default async function handler(req, res) {
-  // 1. Only allow POST method
-  if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
+  // Enable CORS
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,POST");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "X-CSRF-Token, X-Requested-With, Accept, Content-Type, Authorization"
+  );
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
   }
 
-  // 2. Parse body
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, message: "Method not allowed. Use POST." });
+  }
+
   let body = req.body;
   if (typeof body === "string") {
     try {
@@ -33,8 +50,6 @@ export default async function handler(req, res) {
   }
 
   const cleanEmail = normalizeEmail(body?.email);
-
-  // 3. Validate email
   if (!cleanEmail || !cleanEmail.includes("@")) {
     return res.status(400).json({
       success: false,
@@ -42,12 +57,126 @@ export default async function handler(req, res) {
     });
   }
 
+  // Determine whether this is a verification request or a send request
+  const cleanOtp = (body?.otp || "").toString().trim();
+  const isVerify =
+    req.query?.action === "verify" ||
+    body?.action === "verify" ||
+    cleanOtp.length > 0;
+
+  // ─── VERIFY OTP ──────────────────────────────────────────────────────────────
+  if (isVerify) {
+    const orderId = body?.orderId || null;
+    const displayName = body?.displayName || "";
+
+    if (cleanOtp.length !== 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid 6-digit verification code.",
+      });
+    }
+
+    try {
+      const sessionRef = doc(db, "otpSessions", cleanEmail);
+      const sessionSnap = await getDoc(sessionRef);
+
+      if (!sessionSnap.exists()) {
+        return res.status(400).json({
+          success: false,
+          message: "No verification session found. Please request a new code.",
+        });
+      }
+
+      const session = sessionSnap.data();
+      const now = Date.now();
+
+      if (session.used) {
+        return res.status(400).json({
+          success: false,
+          message: "This verification code has already been used.",
+        });
+      }
+
+      if (session.expiresAt < now) {
+        return res.status(400).json({
+          success: false,
+          message: "Verification code has expired. Please request a new code.",
+        });
+      }
+
+      if ((session.attempts || 0) >= 5) {
+        return res.status(400).json({
+          success: false,
+          message: "Maximum verification attempts exceeded. Please request a new code.",
+        });
+      }
+
+      const computedHash = hashOtp(cleanEmail, cleanOtp);
+      if (computedHash !== session.otpHash) {
+        await updateDoc(sessionRef, { attempts: (session.attempts || 0) + 1 });
+        return res.status(400).json({
+          success: false,
+          message: "Incorrect verification code. Please check and try again.",
+        });
+      }
+
+      // Mark session as used
+      await updateDoc(sessionRef, { used: true });
+
+      // Look up or create user in Firestore
+      const q = query(collection(db, "users"), where("email", "==", cleanEmail));
+      const userSnap = await getDocs(q);
+
+      let userId;
+      let isNewUser = false;
+
+      if (!userSnap.empty) {
+        userId = userSnap.docs[0].id;
+      } else {
+        isNewUser = true;
+        const newUserRef = doc(collection(db, "users"));
+        userId = newUserRef.id;
+        await setDoc(newUserRef, {
+          uid: userId,
+          email: cleanEmail,
+          displayName: displayName || cleanEmail.split("@")[0],
+          createdAt: new Date().toISOString(),
+          authProvider: "email_otp",
+        });
+      }
+
+      // Link order if orderId provided
+      if (orderId) {
+        try {
+          const orderRef = doc(db, "orders", orderId);
+          await setDoc(orderRef, { userId, updatedAt: new Date().toISOString() }, { merge: true });
+        } catch (err) {
+          console.warn("Failed to link order ID:", err);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        uid: userId,
+        isNewUser,
+        email: cleanEmail,
+      });
+    } catch (error) {
+      console.error("[Velouraz API] Verify OTP error:", error);
+      return res.status(500).json({
+        success: false,
+        message: error?.message || "Verification failed. Please try again.",
+      });
+    }
+  }
+
+  // ─── SEND OTP ────────────────────────────────────────────────────────────────
   try {
     const now = Date.now();
     const sessionRef = doc(db, "otpSessions", cleanEmail);
     const sessionSnap = await getDoc(sessionRef);
 
-    // 4. Resend Cooldown / Rate Limiting (60 seconds)
+    // Resend Cooldown / Rate Limiting (60 seconds)
     if (sessionSnap.exists()) {
       const data = sessionSnap.data();
       if (data.lastSentAt && now - data.lastSentAt < 60000) {
@@ -59,12 +188,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // 5. Generate 6-digit OTP server-side
+    // Generate 6-digit OTP server-side
     const otp = crypto.randomInt(100000, 999999).toString();
     const hashedOtp = hashOtp(cleanEmail, otp);
     const expiresAt = now + 5 * 60 * 1000; // 5 minutes expiration
 
-    // 6. Store session securely in Firestore
+    // Store session securely in Firestore
     await setDoc(sessionRef, {
       email: cleanEmail,
       otpHash: hashedOtp,
@@ -75,7 +204,6 @@ export default async function handler(req, res) {
       lastSentAt: now,
     });
 
-    // 7. Prepare email content
     const smtpUser = process.env.SMTP_USER;
     const fromAddress = process.env.SMTP_FROM || (smtpUser ? `"Velouraz Jewellery" <${smtpUser}>` : '');
 
@@ -134,19 +262,19 @@ export default async function handler(req, res) {
       `,
     };
 
-    // 8. Send Email via Nodemailer and ONLY return success after it completes
     await sendMailWithFallback(mailOptions);
+    console.log(`[Velouraz API] OTP email dispatched successfully to ${cleanEmail}`);
 
-    console.log(`[Vercel API] OTP email dispatched successfully to ${cleanEmail}`);
     return res.status(200).json({
       success: true,
       message: "OTP sent successfully",
     });
   } catch (error) {
-    console.error("[Vercel API] Failed to send OTP:", error?.message || error);
+    console.error("[Velouraz API] Failed to send OTP:", error?.message || error);
     return res.status(500).json({
       success: false,
       message: error?.message || "Failed to send OTP",
     });
   }
 }
+

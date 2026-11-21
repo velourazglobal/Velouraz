@@ -6,8 +6,30 @@ import crypto from "node:crypto";
 // NEVER hardcode these values here — this file is tracked by Git.
 
 export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,POST");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "X-CSRF-Token, X-Requested-With, Accept, Content-Type, Authorization"
+  );
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Method not allowed. Use POST." });
+  }
+
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      // fallback
+    }
   }
 
   const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME;
@@ -27,8 +49,8 @@ export default async function handler(req, res) {
     });
   }
 
-  const assets = Array.isArray(req.body?.assets)
-    ? req.body.assets.filter((asset) => asset?.publicId)
+  const assets = Array.isArray(body?.assets)
+    ? body.assets.filter((asset) => asset?.publicId)
     : [];
 
   if (!assets.length) {
@@ -42,7 +64,7 @@ export default async function handler(req, res) {
         .createHash("sha1")
         .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
         .digest("hex");
-      const body = new URLSearchParams({
+      const formBody = new URLSearchParams({
         public_id: publicId,
         timestamp: String(timestamp),
         api_key: apiKey,
@@ -53,7 +75,7 @@ export default async function handler(req, res) {
         {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body,
+          body: formBody,
         }
       );
       const data = await response.json();
@@ -66,3 +88,4 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ deleted: results.length });
 }
+

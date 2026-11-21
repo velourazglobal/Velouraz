@@ -1,4 +1,9 @@
-import { sendMailWithFallback } from "./utils/mailer.js";
+import { sendMailWithFallback } from "../server-utils/mailer.js";
+
+const normalizeEmail = (email) => {
+  if (!email || typeof email !== "string") return "";
+  return email.trim().toLowerCase();
+};
 
 const formatItemsHtml = (items = []) => {
   if (!items || items.length === 0) {
@@ -24,23 +29,164 @@ const formatItemsHtml = (items = []) => {
 };
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  // Enable CORS
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,POST");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "X-CSRF-Token, X-Requested-With, Accept, Content-Type, Authorization"
+  );
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
   }
 
-  let orderData = req.body;
-  if (typeof orderData === "string") {
+  if (req.method !== "POST") {
+    return res.status(405).json({ success: false, error: "Method not allowed. Use POST." });
+  }
+
+  let body = req.body;
+  if (typeof body === "string") {
     try {
-      orderData = JSON.parse(orderData);
+      body = JSON.parse(body);
     } catch (e) {
-      // Keep as string fallback
+      // fallback
     }
   }
 
-  if (!orderData) {
-    return res.status(400).json({ error: "Order details are missing." });
+  if (!body) {
+    return res.status(400).json({ error: "Request payload missing." });
   }
 
+  const isAdmin =
+    req.query?.type === "admin" ||
+    body?.type === "admin" ||
+    Boolean(body?.adminId);
+
+  // ─── ADMIN CREDENTIALS EMAIL ────────────────────────────────────────────────
+  if (isAdmin) {
+    const cleanEmail = normalizeEmail(body?.email);
+    const adminId = body?.adminId || "";
+    const displayName = body?.displayName || adminId;
+    const password = body?.password || "";
+    const loginUrl = body?.loginUrl || "https://velouraz.in/admin";
+
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address.",
+      });
+    }
+
+    if (!adminId || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin ID and Password are required.",
+      });
+    }
+
+    try {
+      const smtpUser = process.env.SMTP_USER;
+      const fromAddress =
+        process.env.SMTP_FROM ||
+        (smtpUser ? `"Velouraz Jewellery" <${smtpUser}>` : '"Velouraz Admin Control" <admin@velouraz.in>');
+
+      const mailOptions = {
+        from: fromAddress,
+        to: cleanEmail,
+        subject: `Velouraz Admin Portal - Login Credentials for ${displayName}`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Velouraz Admin Credentials</title>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #0d0b0e; color: #ffffff;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="padding: 40px 20px;">
+              <tr>
+                <td align="center">
+                  <table width="100%" maxWidth="580" cellpadding="0" cellspacing="0" style="max-width: 580px; background-color: #161217; border: 1px solid #2e2633; border-radius: 14px; overflow: hidden; padding: 40px 30px;">
+                    <tr>
+                      <td align="center" style="padding-bottom: 20px;">
+                        <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; font-weight: normal; letter-spacing: 4px; color: #d4af37;">VELOURAZ</h1>
+                        <p style="margin: 5px 0 0 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #8a8292;">Store Administration Portal</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="border-top: 1px solid #2e2633; padding-top: 25px;">
+                        <h2 style="font-size: 18px; font-weight: 500; color: #ffffff; margin-bottom: 14px;">Welcome to Velouraz Admin Team</h2>
+                        <p style="font-size: 14px; color: #b5adc0; line-height: 1.6; margin: 0 0 24px 0;">
+                          Hello <strong>${displayName}</strong>,<br><br>
+                          Your Store Administrator account for Velouraz has been created successfully. Below are your official login credentials:
+                        </p>
+
+                        <div style="background: #1e1921; border-radius: 10px; border: 1px solid #2e2633; padding: 20px; margin-bottom: 25px;">
+                          <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 14px; color: #ffffff;">
+                            <tr>
+                              <td width="35%" style="color: #8a8292; font-weight: bold;">Account Role:</td>
+                              <td style="color: #d4af37; font-weight: bold;">Store Administrator (Admin)</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #8a8292; font-weight: bold;">Admin ID:</td>
+                              <td style="font-family: monospace; font-size: 15px; color: #ffffff;">${adminId}</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #8a8292; font-weight: bold;">Email ID:</td>
+                              <td style="color: #ffffff;">${cleanEmail}</td>
+                            </tr>
+                            <tr>
+                              <td style="color: #8a8292; font-weight: bold;">Password:</td>
+                              <td style="font-family: monospace; font-size: 15px; color: #d4af37; font-weight: bold;">${password}</td>
+                            </tr>
+                          </table>
+                        </div>
+
+                        <div style="text-align: center; margin: 25px 0;">
+                          <a href="${loginUrl}" target="_blank" style="display: inline-block; background-color: #811331; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: bold; font-size: 14px; letter-spacing: 1px;">
+                            LOGIN TO ADMIN PORTAL
+                          </a>
+                        </div>
+
+                        <p style="font-size: 13px; color: #8a8292; line-height: 1.5; margin: 0;">
+                          For security reasons, please do not share these credentials with unauthorized persons.
+                        </p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="center" style="border-top: 1px solid #2e2633; margin-top: 30px; padding-top: 25px;">
+                        <p style="font-size: 12px; color: #6b6374; margin: 0;">
+                          © ${new Date().getFullYear()} Velouraz Jewellery. Executive Management System.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `,
+      };
+
+      await sendMailWithFallback(mailOptions);
+      console.log(`[Velouraz API] Admin credentials email dispatched via Nodemailer to ${cleanEmail}`);
+      return res.status(200).json({
+        success: true,
+        message: "Admin credentials emailed successfully via Nodemailer.",
+      });
+    } catch (error) {
+      console.error("[Velouraz API] Failed to send admin credentials email:", error?.message || error);
+      return res.status(500).json({
+        success: false,
+        message: error?.message || "Failed to send credentials email.",
+      });
+    }
+  }
+
+  // ─── ORDER CONFIRMATION EMAIL ───────────────────────────────────────────────
+  const orderData = body;
   const customerEmail = orderData.email || orderData.shippingAddress?.email;
   if (!customerEmail) {
     return res.status(400).json({ error: "Customer email address is required." });
@@ -50,7 +196,6 @@ export default async function handler(req, res) {
   const smtpPass = process.env.SMTP_PASS;
   const adminEmail = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || smtpUser || "admin@velouraz.com";
 
-  // Dev mode simulation if SMTP missing
   if (!smtpUser || !smtpPass) {
     console.warn(`[DEV MODE] SMTP not configured in .env. Simulated order email for Order #${orderData.id || orderData.orderId}`);
     return res.status(200).json({
@@ -68,12 +213,12 @@ export default async function handler(req, res) {
     day: "numeric",
   });
   const totalFormatted = `₹${Number(orderData.totalAmount || orderData.total || 0).toLocaleString("en-IN")}`;
-  const addressFormatted = orderData.shippingAddress?.fullAddress ||
+  const addressFormatted =
+    orderData.shippingAddress?.fullAddress ||
     `${orderData.shippingAddress?.address || ""}, ${orderData.shippingAddress?.city || ""} - ${orderData.shippingAddress?.pincode || ""}`;
   const paymentMethod = (orderData.paymentMethod || "online").toUpperCase();
   const paymentStatus = orderData.paymentStatus || "Paid";
 
-  // 1. Customer Receipt Email
   const customerMailOptions = {
     from: process.env.SMTP_FROM || `"Velouraz" <${smtpUser}>`,
     to: customerEmail,
@@ -153,7 +298,6 @@ export default async function handler(req, res) {
     `,
   };
 
-  // 2. Admin Alert Email
   const adminMailOptions = {
     from: process.env.SMTP_FROM || `"Velouraz Orders" <${smtpUser}>`,
     to: adminEmail,
@@ -181,10 +325,11 @@ export default async function handler(req, res) {
       sendMailWithFallback(customerMailOptions),
       sendMailWithFallback(adminMailOptions),
     ]);
-    console.log(`[Nodemailer] Order confirmation emails sent for Order #${orderId}`);
+    console.log(`[Velouraz API] Order confirmation emails sent for Order #${orderId}`);
     return res.status(200).json({ success: true, message: "Order emails sent successfully." });
   } catch (error) {
-    console.error("[Nodemailer] Failed to send order confirmation emails:", error);
+    console.error("[Velouraz API] Failed to send order confirmation emails:", error);
     return res.status(500).json({ error: error.message || "Failed to send order emails." });
   }
 }
+

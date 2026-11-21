@@ -10,8 +10,8 @@ import {
   where,
   getDocs,
   serverTimestamp,
-} from "./utils/firebaseServer.js";
-import { sendMailWithFallback } from "./utils/mailer.js";
+} from "../server-utils/firebaseServer.js";
+import { sendMailWithFallback } from "../server-utils/mailer.js";
 
 // Helper to send order email
 async function sendConfirmedOrderEmail(order) {
