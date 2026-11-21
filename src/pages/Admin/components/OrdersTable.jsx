@@ -413,6 +413,10 @@ const OrdersTable = ({ orders = [] }) => {
   // Filtered Orders calculation
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
+      // 0. Always show only PAID orders
+      const payStatus = (order.paymentStatus || "").toUpperCase();
+      if (payStatus !== "PAID") return false;
+
       // 1. Search filter
       const q = searchQuery.trim().toLowerCase();
       if (q) {

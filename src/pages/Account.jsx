@@ -357,7 +357,6 @@ const Account = () => {
   const sidebarLinks = [
     { id: "dashboard", label: "Dashboard", icon: Crown },
     { id: "orders", label: "Order History", icon: Package, badge: orders.length },
-    { id: "track", label: "Track Order", icon: Truck },
     { id: "addresses", label: "Saved Addresses", icon: MapPin, badge: addresses.length },
     { id: "invoices", label: "Invoices & Receipts", icon: FileText },
     { id: "profile", label: "Account Settings", icon: Settings },
@@ -571,7 +570,7 @@ const Account = () => {
                             <div className="flex items-center justify-between sm:justify-end gap-4">
                               <span className="text-sm font-bold text-[#2e0e43]">₹{Number(order.total || order.totalAmount || 0).toLocaleString("en-IN")}</span>
                               <button
-                                onClick={() => { setSelectedOrder(order); setShowOrderModal(true); }}
+                                onClick={() => navigate(`/orders?orderId=${order.id}`)}
                                 className="px-3 py-1.5 border border-[#2e0e43] text-[#2e0e43] text-[16px] font-bold uppercase rounded-lg hover:bg-[#2e0e43] hover:text-white transition-all"
                               >
                                 Details
@@ -658,7 +657,7 @@ const Account = () => {
 
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => { setSelectedOrder(order); setShowOrderModal(true); }}
+                                onClick={() => navigate(`/orders?orderId=${order.id}`)}
                                 className="px-4 py-2 border border-[#2A2623] text-[#2A2623] text-base font-bold uppercase tracking-wider rounded-xl hover:bg-[#2A2623] hover:text-white transition-all"
                               >
                                 Details
@@ -681,74 +680,6 @@ const Account = () => {
                       <Link to="/shop" className="inline-block px-6 py-3 bg-[#2e0e43] text-white text-base font-bold uppercase tracking-widest rounded-xl">
                         Shop Now
                       </Link>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {/* TAB 3: TRACK ORDER */}
-              {activeTab === "track" && (
-                <motion.div
-                  key="track"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="bg-white p-6 sm:p-8 rounded-2xl border border-[#D8CBBE]/40 shadow-sm space-y-8"
-                >
-                  <div className="border-b border-[#D8CBBE]/30 pb-4">
-                    <h3 className="font-serif text-xl font-bold text-[#2A2623]">Track Your Order</h3>
-                    <p className="text-base text-[#7B6D63]">Live delivery status & progress tracking</p>
-                  </div>
-
-                  {orders.length > 0 ? (
-                    <div className="space-y-8">
-                      {/* Active Order Card */}
-                      {(() => {
-                        const activeOrder = orders[0];
-                        return (
-                          <div className="p-6 rounded-2xl bg-[#FDFAF5] border border-[#D8CBBE]/40 space-y-6">
-                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-[#D8CBBE]/30 pb-4">
-                              <div>
-                                <p className="text-[16px] uppercase font-bold text-[#7B6D63] tracking-widest">Active Order ID</p>
-                                <p className="text-sm font-bold font-mono text-[#2A2623]">#{activeOrder.id}</p>
-                              </div>
-                              <div>
-                                <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-base font-bold rounded-full">
-                                  Estimated Delivery: In 3-5 Days
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Tracking Timeline */}
-                            <div className="py-4">
-                              <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                                {[
-                                  { label: "Order Placed", desc: "Confirmed", done: true },
-                                  { label: "Artisan Crafting", desc: "Quality Check", done: true },
-                                  { label: "Dispatched", desc: "Express Air Courier", done: true },
-                                  { label: "Out for Delivery", desc: "Arriving Soon", done: false },
-                                  { label: "Delivered", desc: "Parcel Handover", done: false },
-                                ].map((step, idx) => (
-                                  <div key={idx} className="flex md:flex-col items-center gap-3 relative z-10">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-base font-bold ${step.done ? "bg-[#2e0e43] text-white" : "bg-gray-200 text-gray-400"
-                                      }`}>
-                                      {step.done ? <CheckCircle2 size={16} /> : idx + 1}
-                                    </div>
-                                    <div className="text-left md:text-center">
-                                      <p className="text-base font-bold text-[#2A2623]">{step.label}</p>
-                                      <p className="text-[16px] text-[#7B6D63]">{step.desc}</p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  ) : (
-                    <div className="text-center py-16 text-[#7B6D63]">
-                      No active orders to track. Place an order to see live tracking updates!
                     </div>
                   )}
                 </motion.div>
@@ -1083,8 +1014,8 @@ const Account = () => {
 
               <div className="bg-[#FDFAF5] p-4 rounded-xl border border-[#D8CBBE]/30 space-y-2 text-base text-[#7B6D63]">
                 <h4 className="font-bold text-[#2A2623] uppercase tracking-wider text-[16px]">Shipping Details</h4>
-                <p><span className="font-bold text-[#2A2623]">{selectedOrder.shippingDetails?.name}</span> ({selectedOrder.shippingDetails?.phone})</p>
-                <p>{selectedOrder.shippingDetails?.address}, {selectedOrder.shippingDetails?.city}, {selectedOrder.shippingDetails?.state} - {selectedOrder.shippingDetails?.pincode}</p>
+                <p><span className="font-bold text-[#2A2623]">{selectedOrder.shippingAddress?.name || selectedOrder.customerName}</span>{(selectedOrder.shippingAddress?.phone || selectedOrder.phone) ? ` (${selectedOrder.shippingAddress?.phone || selectedOrder.phone})` : ""}</p>
+                <p>{[selectedOrder.shippingAddress?.fullAddress || selectedOrder.shippingAddress?.address, selectedOrder.shippingAddress?.city, selectedOrder.shippingAddress?.state].filter(Boolean).join(", ")}{selectedOrder.shippingAddress?.pincode ? ` - ${selectedOrder.shippingAddress.pincode}` : ""}</p>
                 <p className="pt-1 text-[16px]">Payment Method: <span className="font-bold text-[#2e0e43]">{selectedOrder.paymentMethod}</span></p>
               </div>
 
@@ -1137,10 +1068,10 @@ const Account = () => {
                 <div className="grid grid-cols-2 gap-4 bg-[#FDFAF5] p-4 rounded-xl border border-[#D8CBBE]/30">
                   <div>
                     <p className="text-[16px] uppercase font-bold text-[#7B6D63]">Billed To</p>
-                    <p className="font-bold text-gray-900">{invoiceOrder.shippingDetails?.name}</p>
-                    <p>{invoiceOrder.shippingDetails?.address}</p>
-                    <p>{invoiceOrder.shippingDetails?.city}, {invoiceOrder.shippingDetails?.pincode}</p>
-                    <p>Phone: {invoiceOrder.shippingDetails?.phone}</p>
+                    <p className="font-bold text-gray-900">{invoiceOrder.shippingAddress?.name || invoiceOrder.customerName}</p>
+                    <p>{invoiceOrder.shippingAddress?.fullAddress || invoiceOrder.shippingAddress?.address}</p>
+                    <p>{[invoiceOrder.shippingAddress?.city, invoiceOrder.shippingAddress?.pincode].filter(Boolean).join(", ")}</p>
+                    <p>Phone: {invoiceOrder.shippingAddress?.phone || invoiceOrder.phone || "N/A"}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[16px] uppercase font-bold text-[#7B6D63]">Merchant</p>

@@ -1115,8 +1115,8 @@ const Orders = () => {
 
               <div className="bg-[#F6F2EC] p-4 rounded-xl border border-[#E5D7C5] space-y-2 text-xs font-sans">
                 <h4 className="font-bold text-[#14111E] uppercase tracking-wider text-[14px]">Shipping & Payment Info</h4>
-                <p><span className="font-bold text-[#14111E]">{selectedOrder.customerName || selectedOrder.shippingAddress?.name}</span> ({selectedOrder.phone || selectedOrder.shippingAddress?.phone})</p>
-                <p>{selectedOrder.shippingAddress?.fullAddress || `${selectedOrder.shippingAddress?.address}, ${selectedOrder.shippingAddress?.city} - ${selectedOrder.shippingAddress?.pincode}`}</p>
+                <p><span className="font-bold text-[#14111E]">{selectedOrder.customerName || selectedOrder.shippingAddress?.name}</span>{(selectedOrder.phone || selectedOrder.shippingAddress?.phone) ? ` (${selectedOrder.phone || selectedOrder.shippingAddress?.phone})` : ""}</p>
+                <p>{selectedOrder.shippingAddress?.fullAddress || [selectedOrder.shippingAddress?.address, selectedOrder.shippingAddress?.city].filter(Boolean).join(", ")}{selectedOrder.shippingAddress?.pincode ? ` - ${selectedOrder.shippingAddress.pincode}` : ""}</p>
                 <p className="pt-1 text-[14px]">Payment Method: <span className="font-bold text-[#14111E] uppercase">{selectedOrder.paymentMethod} ({selectedOrder.paymentStatus})</span></p>
               </div>
 
