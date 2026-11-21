@@ -428,6 +428,36 @@ const Checkout = () => {
               orderId: rzpOrder.orderId,
             });
 
+            // Ensure order confirmation email is dispatched
+            try {
+              const orderPayloadForEmail = verification.order || {
+                id: rzpOrder.orderId,
+                orderNumber: rzpOrder.orderNumber,
+                customerName: cleanName,
+                email: cleanEmail,
+                totalAmount: total,
+                paymentMethod: "RAZORPAY",
+                paymentStatus: "PAID",
+                razorpayPaymentId: response.razorpay_payment_id,
+                shippingAddress: {
+                  name: cleanName,
+                  email: cleanEmail,
+                  phone: cleanPhone,
+                  address: cleanAddress,
+                  city: cleanCity,
+                  state: cleanState,
+                  pincode: cleanPincode,
+                  fullAddress: `${cleanAddress}, ${cleanCity}, ${cleanState} - ${cleanPincode}`,
+                },
+                items: checkoutItems,
+              };
+              sendOrderEmails(orderPayloadForEmail).catch((err) =>
+                console.warn("[Checkout] Client order email dispatch notice:", err)
+              );
+            } catch (emailErr) {
+              console.warn("[Checkout] Email fallback notice:", emailErr);
+            }
+
             // Clear shopping bag & buy now session
             setBuyNowItem(null);
             if (typeof window !== "undefined" && window.history?.replaceState) {

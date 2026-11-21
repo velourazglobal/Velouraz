@@ -64,7 +64,13 @@ export default async function handler(req, res) {
     body?.type === "admin" ||
     Boolean(body?.adminId);
 
+  const isShipping =
+    req.query?.type === "shipping" ||
+    body?.type === "shipping" ||
+    Boolean(body?.awbCode || body?.awbNumber || body?.shipping?.awbCode);
+
   // ─── ADMIN CREDENTIALS EMAIL ────────────────────────────────────────────────
+
   if (isAdmin) {
     const cleanEmail = normalizeEmail(body?.email);
     const adminId = body?.adminId || "";
@@ -185,9 +191,135 @@ export default async function handler(req, res) {
     }
   }
 
+  // ─── SHIPPING NOTIFICATION EMAIL (SHIPROCKET DISPATCH) ──────────────────────
+  if (isShipping) {
+    const shippingData = body;
+    const cleanCustomerEmail = normalizeEmail(
+      shippingData.email ||
+      shippingData.shippingAddress?.email ||
+      shippingData.customerEmail ||
+      shippingData.billing_email
+    );
+
+    if (!cleanCustomerEmail) {
+      return res.status(400).json({ success: false, message: "Customer email is required for shipping notification." });
+    }
+
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+
+    if (!smtpUser || !smtpPass) {
+      console.warn(`[DEV MODE] SMTP not configured. Simulated shipping email for AWB ${shippingData.awbCode || shippingData.awbNumber}`);
+      return res.status(200).json({ success: true, simulated: true, message: "Dev Mode: Shipping email simulated." });
+    }
+
+    const orderId = shippingData.orderNumber || shippingData.orderId || shippingData.id || "N/A";
+    const customerName = shippingData.customerName || shippingData.shippingAddress?.name || "Valued Collector";
+    const courierName = shippingData.courierName || shippingData.shipping?.courierName || "Shiprocket Express Air";
+    const awbCode = shippingData.awbCode || shippingData.awbNumber || shippingData.shipping?.awbCode || "N/A";
+    const estDelivery = shippingData.estimatedDeliveryDate || shippingData.estimatedDelivery || shippingData.shipping?.estimatedDeliveryDate || "3-5 Business Days";
+    const trackingUrl = shippingData.trackingUrl || shippingData.shipping?.trackingUrl || `https://shiprocket.co/tracking/${awbCode}`;
+
+    const fromAddress =
+      process.env.SMTP_FROM ||
+      (smtpUser ? `"Velouraz Logistics" <${smtpUser}>` : '"Velouraz Dispatch" <dispatch@velouraz.in>');
+
+    const shippingMailOptions = {
+      from: fromAddress,
+      to: cleanCustomerEmail,
+      subject: `Your Velouraz Order #${orderId} Has Been Dispatched! (AWB: ${awbCode})`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Order Dispatched - Velouraz</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #0d0b0e; color: #ffffff;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding: 40px 20px;">
+            <tr>
+              <td align="center">
+                <table width="100%" maxWidth="580" cellpadding="0" cellspacing="0" style="max-width: 580px; background-color: #161217; border: 1px solid #2e2633; border-radius: 14px; overflow: hidden; padding: 40px 30px;">
+                  <tr>
+                    <td align="center" style="padding-bottom: 20px;">
+                      <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; font-weight: normal; letter-spacing: 4px; color: #d4af37;">VELOURAZ</h1>
+                      <p style="margin: 5px 0 0 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #8a8292;">Insured Express Logistics</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="border-top: 1px solid #2e2633; padding-top: 25px;">
+                      <h2 style="font-size: 18px; font-weight: 500; color: #ffffff; margin-bottom: 12px;">Your Piece Has Been Packed & Shipped</h2>
+                      <p style="font-size: 14px; color: #b5adc0; line-height: 1.6; margin: 0 0 24px 0;">
+                        Dear <strong>${customerName}</strong>,<br><br>
+                        Great news! Your handcrafted jewellery piece from Velouraz has been inspected, packed in secure packaging, and handed over to our official shipping partner <strong>${courierName}</strong>.
+                      </p>
+
+                      <div style="background: #1e1921; border-radius: 10px; border: 1px solid #2e2633; padding: 20px; margin-bottom: 25px;">
+                        <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 14px; color: #ffffff;">
+                          <tr>
+                            <td width="40%" style="color: #8a8292; font-weight: bold;">Order Reference:</td>
+                            <td style="color: #ffffff; font-weight: bold;">#${orderId}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #8a8292; font-weight: bold;">Logistics Partner:</td>
+                            <td style="color: #d4af37; font-weight: bold;">${courierName}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #8a8292; font-weight: bold;">AWB / Tracking No:</td>
+                            <td style="font-family: monospace; font-size: 15px; color: #22c55e; font-weight: bold;">${awbCode}</td>
+                          </tr>
+                          <tr>
+                            <td style="color: #8a8292; font-weight: bold;">Est. Delivery:</td>
+                            <td style="color: #ffffff;">${estDelivery}</td>
+                          </tr>
+                        </table>
+                      </div>
+
+                      <div style="text-align: center; margin: 30px 0;">
+                        <a href="${trackingUrl}" target="_blank" style="display: inline-block; background-color: #811331; color: #ffffff; text-decoration: none; padding: 14px 30px; border-radius: 8px; font-weight: bold; font-size: 14px; letter-spacing: 1px;">
+                          TRACK SHIPMENT LIVE
+                        </a>
+                      </div>
+
+                      <p style="font-size: 13px; color: #8a8292; line-height: 1.5; margin: 0;">
+                        You can also track your live shipment progress at any time directly on our website in your account's Orders page.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="border-top: 1px solid #2e2633; margin-top: 30px; padding-top: 25px;">
+                      <p style="font-size: 12px; color: #6b6374; margin: 0;">
+                        © ${new Date().getFullYear()} Velouraz High Jewellery. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
+    };
+
+    try {
+      await sendMailWithFallback(shippingMailOptions);
+      console.log(`[Velouraz API] Shipping notification email dispatched to ${cleanCustomerEmail} for AWB ${awbCode}`);
+      return res.status(200).json({ success: true, message: "Shipping notification email sent." });
+    } catch (shipErr) {
+      console.error("[Velouraz API] Failed to send shipping email:", shipErr);
+      return res.status(500).json({ success: false, message: shipErr.message || "Failed to send shipping email." });
+    }
+  }
+
   // ─── ORDER CONFIRMATION EMAIL ───────────────────────────────────────────────
   const orderData = body;
-  const customerEmail = orderData.email || orderData.shippingAddress?.email;
+  const customerEmail =
+    normalizeEmail(orderData.email) ||
+    normalizeEmail(orderData.shippingAddress?.email) ||
+    normalizeEmail(orderData.customerEmail) ||
+    normalizeEmail(orderData.billing_email);
+
   if (!customerEmail) {
     return res.status(400).json({ error: "Customer email address is required." });
   }
@@ -321,11 +453,12 @@ export default async function handler(req, res) {
   };
 
   try {
-    await Promise.all([
+    const results = await Promise.allSettled([
       sendMailWithFallback(customerMailOptions),
       sendMailWithFallback(adminMailOptions),
     ]);
-    console.log(`[Velouraz API] Order confirmation emails sent for Order #${orderId}`);
+    const successCount = results.filter((r) => r.status === "fulfilled").length;
+    console.log(`[Velouraz API] Order confirmation emails sent for Order #${orderId} (${successCount}/2 delivered)`);
     return res.status(200).json({ success: true, message: "Order emails sent successfully." });
   } catch (error) {
     console.error("[Velouraz API] Failed to send order confirmation emails:", error);

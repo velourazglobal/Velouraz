@@ -17,7 +17,9 @@ import {
   Sparkles,
   RefreshCw,
   FileText,
-  Building
+  Building,
+  Copy,
+  Check
 } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
 import { trackShiprocketOrder } from "../services/shiprocketService";
@@ -34,6 +36,14 @@ const OrderTracking = () => {
   const [trackingInfo, setTrackingInfo] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [activeSearchId, setActiveSearchId] = useState(queryId);
+  const [copyFeedback, setCopyFeedback] = useState("");
+
+  const handleCopy = (text, label) => {
+    if (!text) return;
+    navigator.clipboard.writeText(String(text));
+    setCopyFeedback(label || "Copied!");
+    setTimeout(() => setCopyFeedback(""), 2000);
+  };
 
   const handleTrack = async (searchId) => {
     const targetId = String(searchId || inputQuery).trim();
@@ -117,6 +127,16 @@ const OrderTracking = () => {
 
       <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-8">
 
+        {/* Copy Feedback Toast */}
+        {copyFeedback && (
+          <div className="fixed bottom-6 right-6 z-[250]">
+            <div className="px-4 py-2.5 bg-[#14111E] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-2xl border border-[#C8A46A]/40 font-sans">
+              <Check size={14} className="text-[#C8A46A]" />
+              <span>{copyFeedback}</span>
+            </div>
+          </div>
+        )}
+
         {/* Search Header Container */}
         <div className="bg-white p-6 sm:p-10 rounded-3xl border border-[#E5D7C5] shadow-xs text-center space-y-6">
           <div className="max-w-xl mx-auto space-y-2">
@@ -172,41 +192,69 @@ const OrderTracking = () => {
             className="space-y-8"
           >
             {/* Overview Card */}
-            <div className="bg-white rounded-3xl border border-[#E5D7C5] p-6 sm:p-8 shadow-xs grid grid-cols-1 md:grid-cols-4 gap-6 text-center md:text-left">
-              <div>
-                <span className="text-[14px] uppercase font-bold tracking-[0.2em] text-[#786C60] block font-sans">
-                  Tracking Code (AWB)
-                </span>
-                <p className="text-sm font-bold font-mono text-[#14111E] mt-1">
-                  {trackingInfo.awbNumber}
-                </p>
+            <div className="bg-white rounded-3xl border border-[#E5D7C5] p-6 sm:p-8 shadow-xs space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center md:text-left">
+                <div>
+                  <span className="text-[14px] uppercase font-bold tracking-[0.2em] text-[#786C60] block font-sans">
+                    Tracking Code (AWB)
+                  </span>
+                  <div className="flex items-center justify-center md:justify-start gap-1.5 mt-1">
+                    <p className="text-sm font-bold font-mono text-[#14111E]">
+                      {trackingInfo.awbNumber}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(trackingInfo.awbNumber, "AWB Copied!")}
+                      className="p-1 text-[#786C60] hover:text-[#14111E] rounded hover:bg-[#F6F2EC] transition-colors"
+                      title="Copy AWB Code"
+                    >
+                      <Copy size={13} />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-[14px] uppercase font-bold tracking-[0.2em] text-[#786C60] block font-sans">
+                    Logistics Carrier
+                  </span>
+                  <p className="text-xs font-bold text-[#14111E] mt-1 font-sans flex items-center justify-center md:justify-start gap-1.5">
+                    <Building size={13} className="text-[#C8A46A]" /> {trackingInfo.courierName}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[14px] uppercase font-bold tracking-[0.2em] text-[#786C60] block font-sans">
+                    Est. Delivery Date
+                  </span>
+                  <p className="text-xs font-bold text-emerald-800 mt-1 font-sans flex items-center justify-center md:justify-start gap-1.5">
+                    <Calendar size={13} className="text-[#C8A46A]" /> {trackingInfo.estimatedDelivery}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[14px] uppercase font-bold tracking-[0.2em] text-[#786C60] block font-sans">
+                    Current Status
+                  </span>
+                  <span className="inline-block mt-1 px-3 py-1 bg-[#14111E] text-[#FBF9F5] text-[14px] font-bold uppercase tracking-wider rounded-full font-sans border border-[#C8A46A]/30">
+                    {trackingInfo.currentStatus}
+                  </span>
+                </div>
               </div>
 
-              <div>
-                <span className="text-[14px] uppercase font-bold tracking-[0.2em] text-[#786C60] block font-sans">
-                  Logistics Carrier
+              {/* Official Link Banner */}
+              <div className="pt-4 border-t border-[#E5D7C5] flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                <span className="text-xs text-[#786C60] font-serif italic">
+                  Real-time GPS carrier sync powered by Shiprocket Logistics Network.
                 </span>
-                <p className="text-xs font-bold text-[#14111E] mt-1 font-sans flex items-center justify-center md:justify-start gap-1.5">
-                  <Building size={13} className="text-[#C8A46A]" /> {trackingInfo.courierName}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-[14px] uppercase font-bold tracking-[0.2em] text-[#786C60] block font-sans">
-                  Est. Delivery Date
-                </span>
-                <p className="text-xs font-bold text-emerald-800 mt-1 font-sans flex items-center justify-center md:justify-start gap-1.5">
-                  <Calendar size={13} className="text-[#C8A46A]" /> {trackingInfo.estimatedDelivery}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-[14px] uppercase font-bold tracking-[0.2em] text-[#786C60] block font-sans">
-                  Current Status
-                </span>
-                <span className="inline-block mt-1 px-3 py-1 bg-[#14111E] text-[#FBF9F5] text-[14px] font-bold uppercase tracking-wider rounded-full font-sans border border-[#C8A46A]/30">
-                  {trackingInfo.currentStatus}
-                </span>
+                <a
+                  href={trackingInfo.trackUrl || `https://shiprocket.co/tracking/${trackingInfo.awbNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#251D33] transition-all font-sans border border-[#C8A46A]/30"
+                >
+                  <ExternalLink size={13} className="text-[#C8A46A]" />
+                  <span>Open Official Shiprocket Tracking Page</span>
+                </a>
               </div>
             </div>
 

@@ -9,12 +9,35 @@ import {
   Package, Truck, CheckCircle2, Clock, FileText, Download,
   Search, ArrowLeft, ChevronRight, X, Printer, ShoppingBag,
   CreditCard, ShieldCheck, MapPin, Eye, ExternalLink, Sparkles,
-  RefreshCw, Calendar, Building, Star, MessageSquare, Send, Check
+  RefreshCw, Calendar, Building, Star, MessageSquare, Send, Check, Copy
 } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
 import { generateInvoicePDF } from "../utils/invoice";
-import { trackShiprocketOrder } from "../services/shiprocketService";
+import { trackShiprocketOrder, trackShipment, syncShipmentTracking } from "../services/shiprocketService";
 import { syncUserGuestOrders } from "../services/otpService";
+
+const TRACKING_STAGES = [
+  "Order Placed",
+  "Confirmed",
+  "Processing",
+  "Packed",
+  "Shipped",
+  "In Transit",
+  "Out for Delivery",
+  "Delivered"
+];
+
+const getStageIndex = (status = "") => {
+  const s = String(status || "").toLowerCase().trim();
+  if (s.includes("delivered")) return 7;
+  if (s.includes("out for delivery")) return 6;
+  if (s.includes("in transit") || s.includes("reached") || s.includes("transit")) return 5;
+  if (s.includes("shipped") || s.includes("picked up") || s.includes("dispatched")) return 4;
+  if (s.includes("packed") || s.includes("ready to ship")) return 3;
+  if (s.includes("processing")) return 2;
+  if (s.includes("confirmed") || s.includes("paid")) return 1;
+  return 0; // Order Placed
+};
 
 const Orders = () => {
   const { user } = useAuth();
@@ -59,6 +82,49 @@ const Orders = () => {
   const [trackingOrderData, setTrackingOrderData] = useState(null);
   const [trackingInfo, setTrackingInfo] = useState(null);
   const [trackingError, setTrackingError] = useState("");
+
+  // Customer Dedicated Live Tracking Modal State
+  const [activeTrackingModalOrder, setActiveTrackingModalOrder] = useState(null);
+  const [modalTrackingLoading, setModalTrackingLoading] = useState(false);
+  const [modalTrackingData, setModalTrackingData] = useState(null);
+  const [copyFeedback, setCopyFeedback] = useState("");
+
+  const handleCopy = (text, label) => {
+    if (!text) return;
+    navigator.clipboard.writeText(String(text));
+    setCopyFeedback(label || "Copied!");
+    setTimeout(() => setCopyFeedback(""), 2000);
+  };
+
+  const handleOpenLiveTrackingModal = async (order) => {
+    setActiveTrackingModalOrder(order);
+    setModalTrackingLoading(true);
+    setModalTrackingData(null);
+    try {
+      const targetAwb = order.shipping?.awbCode || order.trackingNumber || "";
+      const res = await trackShipment({ awb: targetAwb, orderId: order.id });
+      setModalTrackingData(res);
+    } catch (err) {
+      console.warn("Live tracking modal error:", err);
+    } finally {
+      setModalTrackingLoading(false);
+    }
+  };
+
+  const handleRefreshModalTracking = async () => {
+    if (!activeTrackingModalOrder) return;
+    setModalTrackingLoading(true);
+    try {
+      const targetAwb = activeTrackingModalOrder.shipping?.awbCode || activeTrackingModalOrder.trackingNumber || "";
+      await syncShipmentTracking(activeTrackingModalOrder.id, targetAwb);
+      const res = await trackShipment({ awb: targetAwb, orderId: activeTrackingModalOrder.id });
+      setModalTrackingData(res);
+    } catch (err) {
+      console.warn("Refresh tracking error:", err);
+    } finally {
+      setModalTrackingLoading(false);
+    }
+  };
 
   // Load User and/or Guest Orders from Firestore with Live Real-time Subscription
   useEffect(() => {
@@ -333,6 +399,21 @@ const Orders = () => {
 
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 mt-10 space-y-8">
 
+        {/* Top Floating Copy Feedback Toast */}
+        {copyFeedback && (
+          <div className="fixed bottom-6 right-6 z-[250]">
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="px-4 py-2.5 bg-[#14111E] text-white text-xs font-semibold rounded-xl flex items-center gap-2 shadow-2xl border border-[#C8A46A]/40"
+            >
+              <Check size={14} className="text-[#C8A46A]" />
+              <span>{copyFeedback}</span>
+            </motion.div>
+          </div>
+        )}
+
         {/* Main Mode Toggle Header Bar */}
         <div className="bg-white p-6 sm:p-8 rounded-3xl border border-[#E5D7C5] shadow-xs space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[#E5D7C5] pb-6">
@@ -478,133 +559,329 @@ const Orders = () => {
 
             {filteredOrders.length > 0 ? (
               <div className="space-y-6">
-                {filteredOrders.map((order) => (
-                  <motion.div
-                    key={order.id}
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-3xl border border-[#E5D7C5] p-6 sm:p-8 shadow-xs space-y-6 hover:border-[#C8A46A] transition-all duration-300"
-                  >
-                    {/* Order Card Header */}
-                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-[#E5D7C5] pb-4">
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[14px] font-bold uppercase tracking-widest text-[#786C60] font-sans">
-                            Order Reference
-                          </span>
-                          <span className="px-3 py-0.5 bg-[#14111E] text-[#FBF9F5] text-[12px] font-bold uppercase tracking-wider rounded-full font-sans border border-[#C8A46A]/30">
-                            {order.orderStatus || "CONFIRMED"}
-                          </span>
-                          <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold uppercase tracking-wider rounded-full font-sans">
-                            {order.paymentStatus || "PAID"}
-                          </span>
-                          {order.razorpayPaymentId && (
-                            <span className="px-2.5 py-0.5 bg-[#F6F2EC] text-[#2e0e43] border border-[#E5D7C5] text-[11px] font-mono font-semibold rounded-full hidden sm:inline">
-                              Pay ID: {order.razorpayPaymentId}
+                {filteredOrders.map((order) => {
+                  const orderNum = order.orderNumber || order.orderId || order.id;
+                  const rzpPaymentId = order.razorpayPaymentId || order.paymentDetails?.razorpayPaymentId || "";
+                  const shippingObj = order.shipping || {};
+                  const awbCode = shippingObj.awbCode || order.trackingNumber || "";
+                  const hasShipment = Boolean(awbCode);
+                  const currentStatus = shippingObj.currentStatus || order.shippingStatus || order.orderStatus || "Confirmed";
+                  const stageIdx = getStageIndex(currentStatus);
+
+                  return (
+                    <motion.div
+                      key={order.id}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white rounded-3xl border border-[#E5D7C5] p-6 sm:p-8 shadow-xs space-y-6 hover:border-[#C8A46A] transition-all duration-300"
+                    >
+                      {/* Order Card Header */}
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-[#E5D7C5] pb-4">
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[14px] font-bold uppercase tracking-widest text-[#786C60] font-sans">
+                              Order Reference
                             </span>
-                          )}
+                            <span className="px-3 py-0.5 bg-[#14111E] text-[#FBF9F5] text-[12px] font-bold uppercase tracking-wider rounded-full font-sans border border-[#C8A46A]/30">
+                              {order.orderStatus || "CONFIRMED"}
+                            </span>
+                            <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold uppercase tracking-wider rounded-full font-sans">
+                              {order.paymentStatus || "PAID"}
+                            </span>
+                            {rzpPaymentId && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(rzpPaymentId, "Razorpay ID Copied!")}
+                                className="px-2.5 py-0.5 bg-[#F6F2EC] hover:bg-[#eae4dc] text-[#2e0e43] border border-[#E5D7C5] text-[11px] font-mono font-semibold rounded-full hidden sm:inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                title="Click to copy Razorpay ID"
+                              >
+                                <span>Pay ID: {rzpPaymentId}</span>
+                                <Copy size={11} className="text-[#786C60]" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold font-mono text-[#14111E]">#{orderNum}</p>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(orderNum, "Order ID Copied!")}
+                              className="p-1 text-[#786C60] hover:text-[#14111E] rounded hover:bg-[#F6F2EC] transition-colors"
+                              title="Copy Order ID"
+                            >
+                              <Copy size={12} />
+                            </button>
+                          </div>
                         </div>
-                        <p className="text-sm font-bold font-mono text-[#14111E]">#{order.orderNumber || order.id}</p>
+
+                        <div className="flex flex-wrap items-center gap-6 text-xs text-[#786C60] font-sans">
+                          <div>
+                            <p className="text-[14px] uppercase font-bold text-[#786C60] tracking-wider">Order Date</p>
+                            <p className="font-semibold text-[#14111E] mt-0.5">
+                              {new Date(order.createdAt?.seconds * 1000 || order.orderDate || Date.now()).toLocaleDateString("en-IN", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </p>
+                          </div>
+                          <div className="h-6 w-px bg-[#E5D7C5] hidden sm:block" />
+                          <div>
+                            <p className="text-[14px] uppercase font-bold text-[#786C60] tracking-wider">Payment Method</p>
+                            <p className="font-semibold text-emerald-800 uppercase mt-0.5 flex items-center gap-1">
+                              <CheckCircle2 size={13} className="text-emerald-600" />
+                              {order.paymentMethod || "RAZORPAY"}
+                            </p>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-6 text-xs text-[#786C60] font-sans">
-                        <div>
-                          <p className="text-[14px] uppercase font-bold text-[#786C60] tracking-wider">Order Date</p>
-                          <p className="font-semibold text-[#14111E] mt-0.5">
-                            {new Date(order.createdAt?.seconds * 1000 || order.orderDate || Date.now()).toLocaleDateString("en-IN", {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </p>
-                        </div>
-                        <div className="h-6 w-px bg-[#E5D7C5] hidden sm:block" />
-                        <div>
-                          <p className="text-[14px] uppercase font-bold text-[#786C60] tracking-wider">Payment Method</p>
-                          <p className="font-semibold text-emerald-800 uppercase mt-0.5 flex items-center gap-1">
-                            <CheckCircle2 size={13} className="text-emerald-600" />
-                            {order.paymentMethod || "RAZORPAY"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                  {/* Items List */}
-                  <div className="space-y-3">
-                    {order.items?.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-4 p-3 rounded-2xl bg-[#F6F2EC] border border-[#E5D7C5]"
-                      >
-                        <img src={getThumbnailUrl(item.image || '/img/jewellery/j.png', 160)} alt={item.name} width="64" height="80" loading="lazy" decoding="async" onError={(e) => handleImageError(e, item.image)} className="w-16 h-20 rounded-xl object-cover border border-[#E5D7C5] shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-serif text-base font-normal text-[#14111E] truncate">{item.name}</h4>
-                          <p className="text-xs text-[#786C60] font-sans pt-0.5">Quantity: {item.quantity || 1}</p>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs font-semibold font-sans text-[#14111E] block">
-                            ₹{(Number(item.price || 0) * (item.quantity || 1)).toLocaleString()}
+                      {/* 8-Stage Visual Order Tracking Timeline */}
+                      <div className="bg-[#FAF8F5] p-4 sm:p-5 rounded-2xl border border-[#E5D7C5] space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#786C60] font-sans flex items-center gap-1.5">
+                            <Truck size={13} className="text-[#C8A46A]" /> Order & Dispatch Journey
                           </span>
+                          <span className="text-[11px] font-semibold text-[#8B6B38] font-sans">
+                            Stage {stageIdx + 1} of 8: <strong className="text-[#14111E]">{TRACKING_STAGES[stageIdx]}</strong>
+                          </span>
+                        </div>
+
+                        <div className="overflow-x-auto pb-2 -mx-2 px-2 no-scrollbar">
+                          <div className="flex items-center min-w-[680px] justify-between relative py-2">
+                            {/* Connecting Progress Line */}
+                            <div className="absolute left-6 right-6 top-5 h-0.5 bg-[#E5D7C5] -z-0" />
+                            <div
+                              className="absolute left-6 top-5 h-0.5 bg-[#14111E] -z-0 transition-all duration-500"
+                              style={{ width: `${(stageIdx / (TRACKING_STAGES.length - 1)) * 92}%` }}
+                            />
+
+                            {TRACKING_STAGES.map((stageName, sIdx) => {
+                              const isDone = sIdx < stageIdx;
+                              const isCurrent = sIdx === stageIdx;
+
+                              return (
+                                <div key={stageName} className="flex flex-col items-center relative z-10 text-center flex-1">
+                                  <div
+                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                                      isDone
+                                        ? "bg-[#14111E] text-[#FBF9F5] border-2 border-[#C8A46A]"
+                                        : isCurrent
+                                        ? "bg-[#C8A46A] text-[#14111E] ring-4 ring-[#C8A46A]/20 shadow-md scale-110"
+                                        : "bg-white text-slate-400 border-2 border-[#E5D7C5]"
+                                    }`}
+                                  >
+                                    {isDone ? <Check size={11} className="text-[#C8A46A]" /> : <span>{sIdx + 1}</span>}
+                                  </div>
+                                  <span
+                                    className={`text-[10px] mt-2 font-sans font-bold whitespace-nowrap ${
+                                      isCurrent
+                                        ? "text-[#14111E] underline decoration-[#C8A46A] decoration-2"
+                                        : isDone
+                                        ? "text-[#4A3E3D]"
+                                        : "text-slate-400"
+                                    }`}
+                                  >
+                                    {stageName}
+                                  </span>
+                                  <span className="text-[9px] text-[#786C60] font-sans mt-0.5 whitespace-nowrap">
+                                    {sIdx === 0 && (order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "Placed")}
+                                    {sIdx === 3 && shippingObj.shipmentDate && new Date(shippingObj.shipmentDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                    {sIdx === stageIdx && sIdx !== 0 && "Current"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dedicated Shiprocket Tracking Information Card */}
+                      {hasShipment ? (
+                        <div className="bg-gradient-to-br from-[#14111E] to-[#251D33] text-white p-5 sm:p-6 rounded-2xl border border-[#C8A46A]/40 shadow-sm space-y-4">
+                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-white/10 pb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-[#C8A46A]/20 border border-[#C8A46A]/40 flex items-center justify-center text-[#C8A46A] shrink-0">
+                                <Truck size={20} />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] uppercase font-bold tracking-widest text-[#C8A46A] font-sans">
+                                    Shiprocket Official Partner
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-emerald-300 border border-emerald-400/30">
+                                    {shippingObj.currentStatus || order.shippingStatus || "Active Dispatch"}
+                                  </span>
+                                </div>
+                                <h4 className="font-serif text-base sm:text-lg text-white">
+                                  {shippingObj.courierName || order.courier || "Shiprocket Express Logistics"}
+                                </h4>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenLiveTrackingModal(order)}
+                                className="px-4 py-2 bg-[#C8A46A] hover:bg-[#d6b379] text-[#14111E] text-xs font-bold uppercase tracking-wider rounded-xl transition-all flex items-center gap-2 shadow-sm cursor-pointer font-sans"
+                              >
+                                <Truck size={14} />
+                                <span>TRACK MY ORDER</span>
+                              </button>
+                              {awbCode && (
+                                <a
+                                  href={shippingObj.trackingUrl || `https://shiprocket.co/tracking/${awbCode}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors border border-white/10 flex items-center justify-center"
+                                  title="Open Official Shiprocket Tracking Page"
+                                >
+                                  <ExternalLink size={14} />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-sans">
+                            <div>
+                              <span className="text-white/60 text-[10px] uppercase font-bold tracking-wider block">AWB Tracking Code</span>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="font-mono font-bold text-white text-sm">
+                                  {awbCode}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopy(awbCode, "AWB Code Copied!")}
+                                  className="text-white/60 hover:text-white p-0.5 cursor-pointer"
+                                  title="Copy AWB Code"
+                                >
+                                  <Copy size={12} />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <span className="text-white/60 text-[10px] uppercase font-bold tracking-wider block">Shiprocket Tracking ID</span>
+                              <p className="font-mono text-white text-xs mt-0.5">
+                                {shippingObj.shiprocketOrderId || shippingObj.shiprocketShipmentId || "SR-" + order.id.slice(0, 8)}
+                              </p>
+                            </div>
+
+                            <div>
+                              <span className="text-white/60 text-[10px] uppercase font-bold tracking-wider block">Estimated Delivery</span>
+                              <p className="text-emerald-400 font-semibold text-xs mt-0.5 flex items-center gap-1">
+                                <Calendar size={12} />
+                                {shippingObj.etd || shippingObj.estimatedDelivery || "3-5 Business Days"}
+                              </p>
+                            </div>
+
+                            <div>
+                              <span className="text-white/60 text-[10px] uppercase font-bold tracking-wider block">Latest Courier Scan</span>
+                              <p className="text-white/80 text-[11px] mt-0.5 truncate" title={shippingObj.latestUpdate || "Manifest generated; awaiting courier pickup."}>
+                                {shippingObj.latestUpdate || "Manifest generated; awaiting courier pickup."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-[#FAF8F5] p-3.5 sm:p-4 rounded-xl border border-[#E5D7C5] flex items-center gap-3 text-xs text-[#786C60] font-sans">
+                          <Sparkles size={16} className="text-[#C8A46A] shrink-0" />
+                          <p>
+                            Your handcrafted jewellery order is confirmed and is being packaged in our Indore atelier. Once packed and dispatched, your live Shiprocket courier tracking and AWB details will appear here.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Items List */}
+                      <div className="space-y-3">
+                        {order.items?.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-4 p-3 rounded-2xl bg-[#F6F2EC] border border-[#E5D7C5]"
+                          >
+                            <img src={getThumbnailUrl(item.image || '/img/jewellery/j.png', 160)} alt={item.name} width="64" height="80" loading="lazy" decoding="async" onError={(e) => handleImageError(e, item.image)} className="w-16 h-20 rounded-xl object-cover border border-[#E5D7C5] shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-serif text-base font-normal text-[#14111E] truncate">{item.name}</h4>
+                              <p className="text-xs text-[#786C60] font-sans pt-0.5">Quantity: {item.quantity || 1}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs font-semibold font-sans text-[#14111E] block">
+                                ₹{(Number(item.price || 0) * (item.quantity || 1)).toLocaleString()}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReviewModal(order, item)}
+                                className="text-[14px] font-sans font-semibold text-[#B89355] hover:text-[#2A2623] hover:underline inline-flex items-center gap-1 mt-1 justify-end cursor-pointer"
+                              >
+                                <Star size={11} className="fill-[#B89355]" /> Review Item
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Bottom Action Footer */}
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pt-4 border-t border-[#E5D7C5]">
+                        <div>
+                          <span className="text-[14px] uppercase font-bold text-[#786C60] font-sans tracking-wider">Total Amount</span>
+                          <p className="text-xl font-serif font-normal text-[#14111E]">
+                            ₹{Number(order.totalAmount || order.total || 0).toLocaleString()}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2.5">
                           <button
                             type="button"
-                            onClick={() => handleOpenReviewModal(order, item)}
-                            className="text-[14px] font-sans font-semibold text-[#B89355] hover:text-[#2A2623] hover:underline inline-flex items-center gap-1 mt-1 justify-end cursor-pointer"
+                            onClick={() => handleOpenReviewModal(order)}
+                            className="px-4 py-2.5 bg-[#FAF3E8] border border-[#C8A46A]/50 text-[#8B6B38] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#14111E] hover:text-[#FAF6F0] hover:border-[#14111E] transition-all flex items-center gap-1.5 font-sans cursor-pointer shadow-xs"
                           >
-                            <Star size={11} className="fill-[#B89355]" /> Review Item
+                            <Star size={14} className="text-[#B89355] fill-[#B89355]" /> Write Review
+                          </button>
+
+                          {hasShipment ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenLiveTrackingModal(order)}
+                              className="px-4 py-2.5 bg-[#14111E] border border-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#251D33] transition-all flex items-center gap-1.5 font-sans cursor-pointer shadow-xs"
+                            >
+                              <Truck size={14} className="text-[#C8A46A]" /> TRACK MY ORDER
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTabMode("tracking");
+                                setTrackingInput(order.id);
+                                handleTrackLookup(order.id);
+                              }}
+                              className="px-4 py-2.5 bg-white border border-[#E5D7C5] text-[#14111E] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#F6F2EC] transition-all flex items-center gap-1.5 font-sans cursor-pointer shadow-xs"
+                            >
+                              <Truck size={14} className="text-[#C8A46A]" /> Logistics Hub
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}
+                            className="px-4 py-2.5 border border-[#E5D7C5] bg-white text-[#14111E] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#F6F2EC] transition-all flex items-center gap-1.5 font-sans cursor-pointer"
+                          >
+                            <Eye size={14} /> Receipt
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => generateInvoicePDF(order)}
+                            className="px-4 py-2.5 bg-white border border-[#E5D7C5] text-[#14111E] text-xs font-bold uppercase tracking-wider rounded-xl hover:border-[#14111E] transition-all flex items-center gap-1.5 font-sans cursor-pointer"
+                          >
+                            <Download size={14} className="text-[#C8A46A]" /> Tax Invoice
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Bottom Action Footer */}
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pt-4 border-t border-[#E5D7C5]">
-                    <div>
-                      <span className="text-[14px] uppercase font-bold text-[#786C60] font-sans tracking-wider">Total Amount</span>
-                      <p className="text-xl font-serif font-normal text-[#14111E]">
-                        ₹{Number(order.totalAmount || order.total || 0).toLocaleString()}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <button
-                        onClick={() => handleOpenReviewModal(order)}
-                        className="px-4 py-2.5 bg-[#FAF3E8] border border-[#C8A46A]/50 text-[#8B6B38] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#14111E] hover:text-[#FAF6F0] hover:border-[#14111E] transition-all flex items-center gap-1.5 font-sans cursor-pointer shadow-xs"
-                      >
-                        <Star size={14} className="text-[#B89355] fill-[#B89355]" /> Write Review
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setActiveTabMode("tracking");
-                          setTrackingInput(order.id);
-                          handleTrackLookup(order.id);
-                        }}
-                        className="px-4 py-2.5 bg-[#14111E] border border-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#251D33] transition-all flex items-center gap-1.5 font-sans cursor-pointer shadow-xs"
-                      >
-                        <Truck size={14} className="text-[#C8A46A]" /> Shiprocket Track
-                      </button>
-
-                      <button
-                        onClick={() => { setSelectedOrder(order); setShowDetailModal(true); }}
-                        className="px-4 py-2.5 border border-[#E5D7C5] bg-white text-[#14111E] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#F6F2EC] transition-all flex items-center gap-1.5 font-sans cursor-pointer"
-                      >
-                        <Eye size={14} /> Receipt
-                      </button>
-
-                      <button
-                        onClick={() => generateInvoicePDF(order)}
-                        className="px-4 py-2.5 bg-white border border-[#E5D7C5] text-[#14111E] text-xs font-bold uppercase tracking-wider rounded-xl hover:border-[#14111E] transition-all flex items-center gap-1.5 font-sans cursor-pointer"
-                      >
-                        <Download size={14} className="text-[#C8A46A]" /> Tax Invoice
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white rounded-3xl p-16 border border-[#E5D7C5] shadow-xs text-center space-y-4">
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white rounded-3xl p-16 border border-[#E5D7C5] shadow-xs text-center space-y-4">
               <ShoppingBag size={48} className="mx-auto text-[#C8A46A]/60" />
               <h3 className="font-serif text-2xl text-[#14111E] font-normal">No acquisitions found</h3>
               <p className="text-xs text-[#786C60] font-serif italic max-w-sm mx-auto">
@@ -1041,6 +1318,185 @@ const Orders = () => {
                   </button>
                 </form>
               )}
+            </motion.div>
+          </div>
+        )}
+
+        {/* CUSTOMER DEDICATED SHIPROCKET LIVE TRACKING MODAL */}
+        {activeTrackingModalOrder && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActiveTrackingModalOrder(null)}
+              className="fixed inset-0 bg-[#0B0711]/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative z-10 border border-[#E5D7C5] shadow-2xl space-y-6"
+            >
+              <div className="flex justify-between items-start border-b border-[#E5D7C5] pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#C8A46A] font-sans flex items-center gap-1.5">
+                      <Truck size={13} /> Official Shiprocket Dispatch
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 uppercase font-sans">
+                      {modalTrackingData?.currentStatus || activeTrackingModalOrder.shipping?.currentStatus || "In Transit"}
+                    </span>
+                  </div>
+                  <h3 className="font-serif text-xl sm:text-2xl font-normal text-[#14111E] mt-1">
+                    Live Shipment Tracking
+                  </h3>
+                  <p className="text-xs text-[#786C60] font-sans">
+                    Order Reference: <strong className="font-mono text-[#14111E]">#{activeTrackingModalOrder.orderNumber || activeTrackingModalOrder.id}</strong>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTrackingModalOrder(null)}
+                  className="p-2 text-slate-400 hover:text-slate-800 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Carrier Overview Details */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#FAF8F5] p-4 rounded-2xl border border-[#E5D7C5] text-xs font-sans">
+                <div>
+                  <span className="text-[#786C60] text-[10px] uppercase font-bold tracking-wider block">Courier Partner</span>
+                  <p className="font-bold text-[#14111E] mt-0.5">
+                    {modalTrackingData?.courierName || activeTrackingModalOrder.shipping?.courierName || "Shiprocket Courier"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[#786C60] text-[10px] uppercase font-bold tracking-wider block">AWB Code</span>
+                  <div className="flex items-center gap-1 mt-0.5 font-mono font-bold text-[#14111E]">
+                    <span className="truncate">{activeTrackingModalOrder.shipping?.awbCode || activeTrackingModalOrder.trackingNumber || "Assigned"}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(activeTrackingModalOrder.shipping?.awbCode || activeTrackingModalOrder.trackingNumber, "AWB Copied!")}
+                      className="text-[#786C60] hover:text-[#14111E] p-0.5 cursor-pointer"
+                    >
+                      <Copy size={11} />
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[#786C60] text-[10px] uppercase font-bold tracking-wider block">Est. Delivery</span>
+                  <p className="font-bold text-emerald-800 mt-0.5">
+                    {modalTrackingData?.etd || activeTrackingModalOrder.shipping?.etd || "3-5 Business Days"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[#786C60] text-[10px] uppercase font-bold tracking-wider block">Pickup Hub</span>
+                  <p className="font-bold text-[#14111E] mt-0.5 truncate">
+                    Indore Atelier, MP
+                  </p>
+                </div>
+              </div>
+
+              {/* Live Scans Timeline */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#786C60] font-sans flex items-center gap-1.5">
+                    <Clock size={13} className="text-[#C8A46A]" /> Shipment Journey & Scans
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={handleRefreshModalTracking}
+                    disabled={modalTrackingLoading}
+                    className="text-xs font-bold text-[#8B6B38] hover:text-[#14111E] flex items-center gap-1 cursor-pointer transition-colors font-sans"
+                  >
+                    <RefreshCw size={12} className={modalTrackingLoading ? "animate-spin" : ""} />
+                    <span>{modalTrackingLoading ? "Refreshing..." : "Sync Status"}</span>
+                  </button>
+                </div>
+
+                {modalTrackingLoading && !modalTrackingData ? (
+                  <div className="py-8 flex flex-col items-center justify-center gap-2">
+                    <div className="w-8 h-8 border-2 border-[#14111E] border-t-[#C8A46A] rounded-full animate-spin" />
+                    <p className="text-xs text-[#786C60] font-sans">Connecting to Shiprocket live tracking network...</p>
+                  </div>
+                ) : (
+                  <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E5D7C5]">
+                    {(modalTrackingData?.timeline || modalTrackingData?.activities || [
+                      {
+                        title: "Shipment Manifest Generated & AWB Assigned",
+                        location: "Velouraz Central Hub, Indore",
+                        timestamp: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+                        completed: true
+                      },
+                      {
+                        title: "Package Handover to Express Logistics Carrier",
+                        location: "Indore Fulfillment Facility",
+                        timestamp: "In Progress",
+                        completed: false
+                      },
+                      {
+                        title: "In Transit Across Carrier Logistics Hubs",
+                        location: "Carrier Network",
+                        timestamp: "Upcoming",
+                        completed: false
+                      },
+                      {
+                        title: "Out for Doorstep Delivery",
+                        location: activeTrackingModalOrder.shippingAddress?.city || "Destination City",
+                        timestamp: modalTrackingData?.etd || "Expected Soon",
+                        completed: false
+                      }
+                    ]).map((step, sIdx) => {
+                      const isComplete = step.completed !== false;
+                      return (
+                        <div key={sIdx} className="relative flex items-start gap-3">
+                          <div
+                            className={`absolute -left-6 top-1 w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] transition-all ${
+                              isComplete
+                                ? "bg-[#14111E] border-[#C8A46A] text-[#FBF9F5]"
+                                : "bg-white border-[#E5D7C5] text-[#9E9082]"
+                            }`}
+                          >
+                            {isComplete ? <Check size={10} className="text-[#C8A46A]" /> : <Clock size={9} />}
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className={`text-xs font-bold font-sans ${isComplete ? "text-[#14111E]" : "text-slate-400"}`}>
+                              {step.title || step.status || step.activity}
+                            </p>
+                            <p className="text-[11px] text-[#786C60] font-sans">
+                              {step.location && <span>{step.location} • </span>}
+                              <span>{step.timestamp || step.date || "Recent"}</span>
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4 border-t border-[#E5D7C5]">
+                <a
+                  href={modalTrackingData?.trackUrl || activeTrackingModalOrder.shipping?.trackingUrl || `https://shiprocket.co/tracking/${activeTrackingModalOrder.shipping?.awbCode || activeTrackingModalOrder.trackingNumber || ""}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#251D33] transition-all flex items-center justify-center gap-2 font-sans border border-[#C8A46A]/30 cursor-pointer"
+                >
+                  <ExternalLink size={13} className="text-[#C8A46A]" />
+                  <span>Open Official Shiprocket Tracking Page</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTrackingModalOrder(null)}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-white border border-[#E5D7C5] text-[#14111E] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#F6F2EC] transition-all font-sans cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

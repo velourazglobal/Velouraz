@@ -15,6 +15,9 @@ function apiDevServerPlugin(env) {
     '/api/verify-otp': { file: 'otp.js', query: { action: 'verify' } },
     '/api/send-order-email': { file: 'send-email.js', query: { type: 'order' } },
     '/api/send-admin-credentials': { file: 'send-email.js', query: { type: 'admin' } },
+    '/api/send-shipping-email': { file: 'send-email.js', query: { type: 'shipping' } },
+    '/api/shiprocket': { file: 'shiprocket.js' },
+    '/api/shiprocket-webhook': { file: 'shiprocket.js', query: { action: 'webhook' } },
     '/api/cloudinary/delete': { file: 'cloudinary-delete.js' },
   };
 

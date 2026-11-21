@@ -29,6 +29,18 @@
       "destination": "/api/send-email?type=admin"
     },
     {
+      "source": "/api/send-shipping-email",
+      "destination": "/api/send-email?type=shipping"
+    },
+    {
+      "source": "/api/shiprocket",
+      "destination": "/api/shiprocket"
+    },
+    {
+      "source": "/api/shiprocket-webhook",
+      "destination": "/api/shiprocket?action=webhook"
+    },
+    {
       "source": "/api/cloudinary/delete",
       "destination": "/api/cloudinary-delete"
     },

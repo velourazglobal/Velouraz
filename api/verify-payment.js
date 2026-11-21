@@ -12,15 +12,23 @@ import {
 } from "../server-utils/firebaseServer.js";
 import { sendMailWithFallback } from "../server-utils/mailer.js";
 
-// Helper to send order confirmation email asynchronously
+// Helper to send order confirmation email
 async function dispatchOrderConfirmationEmails(order) {
   try {
-    const customerEmail = order.email || order.shippingAddress?.email;
-    if (!customerEmail) return;
+    const customerEmail =
+      order.email ||
+      order.shippingAddress?.email ||
+      order.customerEmail ||
+      order.billing_email;
+
+    if (!customerEmail) {
+      console.warn("[Email Notification Warning]: No customer email found on order:", order.id || order.orderNumber);
+      return;
+    }
 
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || smtpUser || "admin@velouraz.com";
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || smtpUser || "admin@velouraz.in";
 
     if (!smtpUser || !smtpPass) {
       console.warn(`[DEV MODE] SMTP not configured. Simulated confirmation email for Order #${order.orderNumber || order.id}`);
@@ -30,7 +38,9 @@ async function dispatchOrderConfirmationEmails(order) {
     const orderId = order.orderNumber || order.id || `VEL-${Date.now()}`;
     const customerName = order.customerName || order.shippingAddress?.name || "Valued Customer";
     const totalFormatted = `₹${Number(order.totalAmount || order.total || 0).toLocaleString("en-IN")}`;
-    const addressFormatted = order.shippingAddress?.fullAddress || `${order.shippingAddress?.address || ""}, ${order.shippingAddress?.city || ""} - ${order.shippingAddress?.pincode || ""}`;
+    const addressFormatted =
+      order.shippingAddress?.fullAddress ||
+      `${order.shippingAddress?.address || ""}, ${order.shippingAddress?.city || ""} - ${order.shippingAddress?.pincode || ""}`;
 
     const itemsHtml = (order.items || [])
       .map(
@@ -38,6 +48,8 @@ async function dispatchOrderConfirmationEmails(order) {
         <tr style="border-bottom: 1px solid #2e2633;">
           <td style="padding: 14px; color: #ffffff; font-size: 14px;">
             <strong>${item.name || "Jewellery Item"}</strong>
+            ${item.size ? `<br><span style="font-size: 12px; color: #8a8292;">Size: ${item.size}</span>` : ""}
+            ${item.metal ? `<span style="font-size: 12px; color: #8a8292;"> | Metal: ${item.metal}</span>` : ""}
           </td>
           <td style="padding: 14px; color: #b5adc0; font-size: 14px; text-align: center;">
             ${item.quantity || 1}
@@ -60,14 +72,14 @@ async function dispatchOrderConfirmationEmails(order) {
                 <tr>
                   <td align="center" style="padding-bottom: 20px;">
                     <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; color: #d4af37; letter-spacing: 4px;">VELOURAZ</h1>
-                    <p style="margin: 5px 0 0 0; font-size: 14px; text-transform: uppercase; color: #8a8292;">High Jewellery</p>
+                    <p style="margin: 5px 0 0 0; font-size: 14px; text-transform: uppercase; color: #8a8292;">Haute Joaillerie</p>
                   </td>
                 </tr>
                 <tr>
                   <td style="border-top: 1px solid #2e2633; padding-top: 25px;">
                     <h2 style="margin: 0 0 10px 0; color: #ffffff; font-size: 20px;">Order Confirmed & Payment Received</h2>
                     <p style="margin: 0 0 20px 0; color: #b5adc0; font-size: 14px; line-height: 1.6;">
-                      Dear ${customerName}, thank you for your acquisition. We have received your payment via Razorpay (ID: <strong>${order.razorpayPaymentId || "Verified"}</strong>).
+                      Dear ${customerName}, thank you for your acquisition. We have successfully received your payment via Razorpay (ID: <strong>${order.razorpayPaymentId || "Verified"}</strong>). Your order is being prepared by our ateliers.
                     </p>
                   </td>
                 </tr>
@@ -81,6 +93,10 @@ async function dispatchOrderConfirmationEmails(order) {
                       <tr>
                         <td style="font-size: 13px; color: #8a8292; padding: 4px 0;">Payment Method:</td>
                         <td style="font-size: 13px; color: #22c55e; text-align: right; font-weight: bold;">RAZORPAY (PAID)</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size: 13px; color: #8a8292; padding: 4px 0;">Razorpay Payment ID:</td>
+                        <td style="font-size: 13px; color: #ffffff; text-align: right; font-family: monospace;">${order.razorpayPaymentId || "N/A"}</td>
                       </tr>
                       <tr>
                         <td style="font-size: 13px; color: #8a8292; padding: 4px 0;">Delivery Address:</td>
@@ -112,6 +128,16 @@ async function dispatchOrderConfirmationEmails(order) {
                     </p>
                   </td>
                 </tr>
+                <tr>
+                  <td align="center" style="border-top: 1px solid #2e2633; margin-top: 25px; padding-top: 20px;">
+                    <p style="font-size: 13px; color: #8a8292; margin: 0;">
+                      You can track your order status anytime on our website under My Orders.
+                    </p>
+                    <p style="font-size: 12px; color: #6b6374; margin-top: 10px;">
+                      © ${new Date().getFullYear()} Velouraz High Jewellery. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
               </table>
             </td>
           </tr>
@@ -120,20 +146,40 @@ async function dispatchOrderConfirmationEmails(order) {
       </html>
     `;
 
-    await sendMailWithFallback({
-      from: process.env.SMTP_FROM || `"Velouraz" <${smtpUser}>`,
-      to: customerEmail,
-      subject: `Payment Successful — Order #${orderId} Confirmed | Velouraz`,
-      html: emailHtml,
-    });
+    const fromAddress =
+      process.env.SMTP_FROM ||
+      (smtpUser ? `"Velouraz Jewellery" <${smtpUser}>` : '"Velouraz" <orders@velouraz.in>');
 
-    // Notify Admin
-    await sendMailWithFallback({
-      from: process.env.SMTP_FROM || `"Velouraz Orders" <${smtpUser}>`,
-      to: adminEmail,
-      subject: `[New Paid Order] #${orderId} - ${totalFormatted}`,
-      html: `<p>New confirmed order #${orderId} received from ${customerName} (${customerEmail}) for ${totalFormatted}. Razorpay Payment ID: ${order.razorpayPaymentId}</p>`,
-    });
+    await Promise.allSettled([
+      sendMailWithFallback({
+        from: fromAddress,
+        to: customerEmail,
+        subject: `Payment Confirmed — Order #${orderId} | Velouraz`,
+        html: emailHtml,
+      }),
+      sendMailWithFallback({
+        from: fromAddress,
+        to: adminEmail,
+        subject: `🚨 [PAID ORDER] #${orderId} - ${totalFormatted} (${customerName})`,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #111;">
+            <h2 style="color: #b8860b;">New Paid Order Confirmed - Velouraz</h2>
+            <p><strong>Order ID:</strong> #${orderId}</p>
+            <p><strong>Customer:</strong> ${customerName} (${customerEmail})</p>
+            <p><strong>Razorpay Payment ID:</strong> ${order.razorpayPaymentId}</p>
+            <p><strong>Amount Paid:</strong> ${totalFormatted}</p>
+            <p><strong>Delivery Address:</strong> ${addressFormatted}</p>
+            <hr />
+            <h3>Items:</h3>
+            <ul>
+              ${(order.items || []).map((i) => `<li>${i.name} (Qty: ${i.quantity || 1}) - ₹${i.price}</li>`).join("")}
+            </ul>
+          </div>
+        `,
+      }),
+    ]);
+
+    console.log(`[Velouraz Mailer] Order confirmation emails dispatched for Order #${orderId}`);
   } catch (emailErr) {
     console.error("[Email Notification Error]:", emailErr);
   }
@@ -529,11 +575,16 @@ export default async function handler(req, res) {
       }
     }
 
-    // Dispatch emails in background
+    // Dispatch emails securely (awaited with timeout guard so serverless does not freeze before network finish)
     if (finalOrder) {
-      dispatchOrderConfirmationEmails(finalOrder).catch((err) =>
-        console.error("[Email Async Error]:", err)
-      );
+      try {
+        await Promise.race([
+          dispatchOrderConfirmationEmails(finalOrder),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Email dispatch timeout")), 6500)),
+        ]);
+      } catch (mailErr) {
+        console.warn("[Verify Payment Mail Notice]:", mailErr?.message || mailErr);
+      }
     }
 
     return res.status(200).json({
