@@ -157,7 +157,7 @@ const Checkout = () => {
     (sum, item) => sum + Number(item.price || 0) * (item.quantity || 1),
     0
   );
-  const shippingFee = subtotal >= 1999 || subtotal === 0 ? 0 : 99;
+  const shippingFee = subtotal >= 1999 || subtotal === 0 ? 0 : 0;
   const discountAmount = appliedCoupon ? Number(appliedCoupon.discountAmount || 0) : 0;
   const total = Math.max(0, subtotal + shippingFee - discountAmount);
 
