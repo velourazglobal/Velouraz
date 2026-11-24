@@ -818,6 +818,554 @@ export default async function handler(req, res) {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // ACTION: book-reverse-pickup (Book Shiprocket Return Pickup for Defective Jewellery)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === "book-reverse-pickup" && req.method === "POST") {
+      const {
+        requestId,
+        pickupAddress = {},
+        packageDetails = {},
+        courierId = null,
+        adminIdentifier = "Admin",
+      } = body;
+
+      if (!requestId) {
+        return res.status(400).json({ success: false, message: "requestId is required." });
+      }
+
+      // 1. Fetch Replacement Request from Firestore
+      const reqDocRef = doc(db, "replacementRequests", requestId);
+      const reqSnap = await getDoc(reqDocRef);
+
+      if (!reqSnap.exists()) {
+        return res.status(404).json({
+          success: false,
+          message: `Replacement request #${requestId} not found.`,
+        });
+      }
+
+      const reqData = reqSnap.data();
+
+      // Idempotency: Prevent duplicate reverse pickup booking
+      if (reqData.reversePickup?.awb && reqData.reversePickup?.shipmentId) {
+        return res.status(200).json({
+          success: true,
+          alreadyBooked: true,
+          message: "Reverse pickup already booked for this request.",
+          reversePickup: reqData.reversePickup,
+        });
+      }
+
+      // 2. Validate Package Details
+      const weight = Number(packageDetails.weight || reqData.reversePickup?.package?.weight || 0.5);
+      const length = Number(packageDetails.length || reqData.reversePickup?.package?.length || 10);
+      const breadth = Number(packageDetails.breadth || reqData.reversePickup?.package?.breadth || 10);
+      const height = Number(packageDetails.height || reqData.reversePickup?.package?.height || 5);
+
+      if (weight <= 0 || length <= 0 || breadth <= 0 || height <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid positive dimensions (cm) and weight (kg) are required.",
+        });
+      }
+
+      // 3. Resolve Customer Pickup Address
+      const cName = (pickupAddress.name || reqData.customerName || "Customer").trim();
+      const cPhone = (pickupAddress.phone || reqData.customerPhone || "").replace(/\D/g, "");
+      const cEmail = (pickupAddress.email || reqData.customerEmail || "customer@velouraz.in").trim();
+      const cAddress = (pickupAddress.address || pickupAddress.fullAddress || "").trim();
+      const cCity = (pickupAddress.city || "").trim();
+      const cState = (pickupAddress.state || "").trim();
+      const cPincode = (pickupAddress.pincode || "").replace(/\D/g, "");
+
+      if (!cName || !cPhone || !cAddress || !cCity || !cState || cPincode.length !== 6) {
+        return res.status(400).json({
+          success: false,
+          message: "Complete customer pickup address (name, phone, street address, city, state, 6-digit pincode) is required.",
+        });
+      }
+
+      // 4. Format Return Items
+      const rawProducts = reqData.products || [];
+      const orderItems = rawProducts.map((p, idx) => ({
+        name: String(p.productName || `Defective Jewellery Piece #${idx + 1}`).slice(0, 100),
+        sku: String(p.sku || `DEF-SKU-${idx + 1}`).slice(0, 50),
+        units: Math.max(1, Number(p.quantity || 1)),
+        selling_price: Math.max(1, Number(p.price || 999)),
+        discount: 0,
+        qc_enable: false,
+        hsn: 711319,
+      }));
+
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const returnDateFormatted = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const returnOrderId = `${String(reqData.orderNumber || reqData.orderId).slice(0, 30)}-REV-${requestId.slice(-5)}`;
+
+      // 5. Build Return Order Payload
+      const returnPayload = {
+        order_id: returnOrderId,
+        order_date: returnDateFormatted,
+        channel_id: "",
+        pickup_customer_name: cName,
+        pickup_last_name: "",
+        pickup_address: cAddress,
+        pickup_address_2: "",
+        pickup_city: cCity,
+        pickup_state: cState,
+        pickup_country: "India",
+        pickup_pincode: cPincode,
+        pickup_email: cEmail,
+        pickup_phone: cPhone,
+        pickup_isd_code: "91",
+        shipping_customer_name: "Velouraz Logistics Hub",
+        shipping_last_name: "",
+        shipping_address: "783, Raj Gold Residency, Flat No. 104, Khatiwala Tank",
+        shipping_address_2: "",
+        shipping_city: "Indore",
+        shipping_country: "India",
+        shipping_pincode: "452014",
+        shipping_state: "Madhya Pradesh",
+        shipping_email: "zahabiyak@gmail.com",
+        shipping_phone: "8349445352",
+        shipping_isd_code: "91",
+        order_items: orderItems,
+        payment_method: "PREPAID",
+        total_discount: 0,
+        sub_total: orderItems.reduce((acc, item) => acc + item.selling_price * item.units, 0),
+        length,
+        breadth,
+        height,
+        weight,
+      };
+
+      console.log(`[Shiprocket] Creating Reverse Pickup for Request #${requestId}...`);
+      const returnOrderRes = await callShiprocketApi("orders/create/return", {
+        method: "POST",
+        body: JSON.stringify(returnPayload),
+      });
+
+      if (!returnOrderRes.ok || (!returnOrderRes.data?.order_id && !returnOrderRes.data?.shipment_id)) {
+        console.error("[Shiprocket Reverse Pickup Failed]:", returnOrderRes.data);
+        return res.status(returnOrderRes.status || 400).json({
+          success: false,
+          message: returnOrderRes.data?.message || "Failed to create return order with Shiprocket.",
+          errors: returnOrderRes.data?.errors || returnOrderRes.data,
+        });
+      }
+
+      const reverseOrderId = returnOrderRes.data.order_id || returnOrderId;
+      const reverseShipmentId = returnOrderRes.data.shipment_id;
+      let reverseAwb = returnOrderRes.data.awb_code || null;
+      let courierName = returnOrderRes.data.courier_name || "Shiprocket Reverse Express";
+      let courierCompanyId = courierId || returnOrderRes.data.courier_company_id || null;
+
+      // 6. Assign AWB for reverse shipment if not assigned
+      if (!reverseAwb && reverseShipmentId) {
+        try {
+          const assignRes = await callShiprocketApi("courier/assign/awb", {
+            method: "POST",
+            body: JSON.stringify({
+              shipment_id: reverseShipmentId,
+              courier_id: courierCompanyId,
+              is_return: 1,
+            }),
+          });
+          if (assignRes.ok && assignRes.data?.response?.data?.awb_code) {
+            reverseAwb = assignRes.data.response.data.awb_code;
+            courierName = assignRes.data.response.data.courier_name || courierName;
+            courierCompanyId = assignRes.data.response.data.courier_company_id || courierCompanyId;
+          }
+        } catch (awbErr) {
+          console.warn("[Shiprocket Reverse AWB Notice]:", awbErr);
+        }
+      }
+
+      // 7. Request pickup
+      let pickupScheduled = false;
+      if (reverseShipmentId) {
+        try {
+          const pickupRes = await callShiprocketApi("courier/generate/pickup", {
+            method: "POST",
+            body: JSON.stringify({ shipment_id: [reverseShipmentId] }),
+          });
+          if (pickupRes.ok && pickupRes.data?.pickup_status === 1) {
+            pickupScheduled = true;
+          }
+        } catch (pickupErr) {
+          console.warn("[Shiprocket Reverse Pickup Notice]:", pickupErr);
+        }
+      }
+
+      // 8. Generate Label
+      let labelUrl = "";
+      if (reverseShipmentId) {
+        try {
+          const labelRes = await callShiprocketApi("courier/generate/label", {
+            method: "POST",
+            body: JSON.stringify({ shipment_id: [reverseShipmentId] }),
+          });
+          if (labelRes.ok && labelRes.data?.label_url) {
+            labelUrl = labelRes.data.label_url;
+          }
+        } catch (labelErr) {
+          console.warn("[Shiprocket Reverse Label Notice]:", labelErr);
+        }
+      }
+
+      const reverseTrackingUrl = reverseAwb
+        ? `https://shiprocket.co/tracking/${reverseAwb}`
+        : `https://shiprocket.co/tracking/${reverseShipmentId}`;
+
+      const nowIso = new Date().toISOString();
+      const reverseRecord = {
+        provider: "SHIPROCKET",
+        orderId: reverseOrderId,
+        shipmentId: reverseShipmentId,
+        awb: reverseAwb || `REV-PENDING-${reverseShipmentId}`,
+        courierName,
+        courierId: courierCompanyId,
+        trackingUrl: reverseTrackingUrl,
+        labelUrl,
+        status: reverseAwb ? "AWB Assigned" : "Pickup Scheduled",
+        pickupAddress: {
+          name: cName,
+          phone: cPhone,
+          email: cEmail,
+          address: cAddress,
+          city: cCity,
+          state: cState,
+          pincode: cPincode,
+          country: "India",
+        },
+        package: { weight, length, breadth, height },
+        pickupScheduledAt: nowIso,
+        pickedUpAt: null,
+        receivedAt: null,
+      };
+
+      const timelineEvent = {
+        status: "REVERSE_PICKUP_SCHEDULED",
+        title: "Reverse Pickup Scheduled",
+        description: `Reverse courier pickup booked with ${courierName}. Reverse AWB: ${reverseAwb || "Pending"}.`,
+        actor: adminIdentifier,
+        timestamp: nowIso,
+      };
+
+      const existingTimeline = Array.isArray(reqData.timeline) ? reqData.timeline : [];
+
+      // 9. Update Firestore Replacement Request
+      await updateDoc(reqDocRef, {
+        status: "REVERSE_PICKUP_SCHEDULED",
+        reversePickup: reverseRecord,
+        timeline: [...existingTimeline, timelineEvent],
+        updatedAt: serverTimestamp(),
+      });
+
+      // Update original order pointer
+      if (reqData.orderId) {
+        try {
+          await updateDoc(doc(db, "orders", reqData.orderId), {
+            replacementStatus: "REVERSE_PICKUP_SCHEDULED",
+            updatedAt: serverTimestamp(),
+          });
+        } catch (e) {}
+      }
+
+      // 10. Send customer email
+      try {
+        fetch(`${process.env.APP_URL || "http://localhost:3000"}/api/send-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "replacement",
+            subType: "REVERSE_SCHEDULED",
+            customerEmail: cEmail,
+            customerName: cName,
+            orderId: reqData.orderNumber || reqData.orderId,
+            requestId,
+            courierName,
+            awbCode: reverseAwb,
+            trackingUrl: reverseTrackingUrl,
+            pickupAddress: `${cAddress}, ${cCity} - ${cPincode}`,
+          }),
+        }).catch(() => {});
+      } catch (emailErr) {}
+
+      return res.status(200).json({
+        success: true,
+        message: "Reverse pickup successfully scheduled.",
+        reversePickup: reverseRecord,
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ACTION: create-replacement-delivery (Ship Brand-New Replacement Piece)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === "create-replacement-delivery" && req.method === "POST") {
+      const {
+        requestId,
+        deliveryAddress = {},
+        packageDetails = {},
+        courierId = null,
+        pickupLocation = process.env.SHIPROCKET_PICKUP_LOCATION || "work",
+        adminIdentifier = "Admin",
+      } = body;
+
+      if (!requestId) {
+        return res.status(400).json({ success: false, message: "requestId is required." });
+      }
+
+      const reqDocRef = doc(db, "replacementRequests", requestId);
+      const reqSnap = await getDoc(reqDocRef);
+
+      if (!reqSnap.exists()) {
+        return res.status(404).json({
+          success: false,
+          message: `Replacement request #${requestId} not found.`,
+        });
+      }
+
+      const reqData = reqSnap.data();
+
+      // Idempotency: Prevent duplicate replacement shipment
+      if (reqData.replacementShipment?.awb && reqData.replacementShipment?.shipmentId) {
+        return res.status(200).json({
+          success: true,
+          alreadyCreated: true,
+          message: "Replacement shipment already exists for this request.",
+          replacementShipment: reqData.replacementShipment,
+        });
+      }
+
+      // Validate package dimensions
+      const weight = Number(packageDetails.weight || 0.5);
+      const length = Number(packageDetails.length || 10);
+      const breadth = Number(packageDetails.breadth || 10);
+      const height = Number(packageDetails.height || 5);
+
+      if (weight <= 0 || length <= 0 || breadth <= 0 || height <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Valid positive dimensions (cm) and weight (kg) are required.",
+        });
+      }
+
+      // Customer delivery info
+      const cName = (deliveryAddress.name || reqData.customerName || "Customer").trim();
+      const cPhone = (deliveryAddress.phone || reqData.customerPhone || "").replace(/\D/g, "");
+      const cEmail = (deliveryAddress.email || reqData.customerEmail || "customer@velouraz.in").trim();
+      const cAddress = (deliveryAddress.address || deliveryAddress.fullAddress || "").trim();
+      const cCity = (deliveryAddress.city || "").trim();
+      const cState = (deliveryAddress.state || "").trim();
+      const cPincode = (deliveryAddress.pincode || "").replace(/\D/g, "");
+
+      if (!cName || !cPhone || !cAddress || !cCity || !cState || cPincode.length !== 6) {
+        return res.status(400).json({
+          success: false,
+          message: "Customer delivery address is incomplete (name, phone, address, city, state, 6-digit pincode required).",
+        });
+      }
+
+      // Format replacement items
+      const rawProducts = reqData.products || [];
+      const orderItems = rawProducts.map((p, idx) => ({
+        name: String(p.productName || `Replacement Jewellery Piece #${idx + 1}`).slice(0, 100),
+        sku: String(p.sku || `REP-SKU-${idx + 1}`).slice(0, 50),
+        units: Math.max(1, Number(p.quantity || 1)),
+        selling_price: Math.max(1, Number(p.price || 999)),
+        discount: 0,
+        tax: 0,
+        hsn: 711319,
+      }));
+
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const orderDateFormatted = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const replacementOrderId = `${String(reqData.orderNumber || reqData.orderId).slice(0, 30)}-REP-${requestId.slice(-5)}`;
+
+      const adhocPayload = {
+        order_id: replacementOrderId,
+        order_date: orderDateFormatted,
+        pickup_location: pickupLocation,
+        channel_id: "",
+        comment: `Velouraz Replacement Piece for Request #${requestId} (Warranty Exchange)`,
+        billing_customer_name: cName,
+        billing_last_name: "",
+        billing_address: cAddress,
+        billing_address_2: "",
+        billing_city: cCity,
+        billing_pincode: cPincode,
+        billing_state: cState,
+        billing_country: "India",
+        billing_email: cEmail,
+        billing_phone: cPhone,
+        shipping_is_billing: true,
+        order_items: orderItems,
+        payment_method: "Prepaid",
+        shipping_charges: 0,
+        giftwrap_charges: 0,
+        transaction_charges: 0,
+        total_discount: 0,
+        sub_total: orderItems.reduce((acc, item) => acc + item.selling_price * item.units, 0),
+        length,
+        breadth,
+        height,
+        weight,
+      };
+
+      console.log(`[Shiprocket] Creating Replacement Delivery Shipment for #${requestId}...`);
+      const createOrderRes = await callShiprocketApi("orders/create/adhoc", {
+        method: "POST",
+        body: JSON.stringify(adhocPayload),
+      });
+
+      if (!createOrderRes.ok || !createOrderRes.data?.order_id) {
+        console.error("[Shiprocket Replacement Order Failed]:", createOrderRes.data);
+        return res.status(createOrderRes.status || 400).json({
+          success: false,
+          message: createOrderRes.data?.message || "Failed to create replacement shipment in Shiprocket.",
+          errors: createOrderRes.data?.errors || createOrderRes.data,
+        });
+      }
+
+      const srOrderId = createOrderRes.data.order_id;
+      const srShipmentId = createOrderRes.data.shipment_id;
+      let awbCode = createOrderRes.data.awb_code || null;
+      let courierName = createOrderRes.data.courier_name || "Shiprocket Express";
+      let courierCompanyId = courierId || createOrderRes.data.courier_company_id || null;
+
+      // Assign AWB
+      if (!awbCode && srShipmentId) {
+        try {
+          const assignRes = await callShiprocketApi("courier/assign/awb", {
+            method: "POST",
+            body: JSON.stringify({
+              shipment_id: srShipmentId,
+              courier_id: courierCompanyId,
+            }),
+          });
+          if (assignRes.ok && assignRes.data?.response?.data?.awb_code) {
+            awbCode = assignRes.data.response.data.awb_code;
+            courierName = assignRes.data.response.data.courier_name || courierName;
+            courierCompanyId = assignRes.data.response.data.courier_company_id || courierCompanyId;
+          }
+        } catch (awbErr) {
+          console.warn("[Shiprocket Replacement AWB Notice]:", awbErr);
+        }
+      }
+
+      // Generate Label
+      let labelUrl = "";
+      if (srShipmentId) {
+        try {
+          const labelRes = await callShiprocketApi("courier/generate/label", {
+            method: "POST",
+            body: JSON.stringify({ shipment_id: [srShipmentId] }),
+          });
+          if (labelRes.ok && labelRes.data?.label_url) {
+            labelUrl = labelRes.data.label_url;
+          }
+        } catch (labelErr) {
+          console.warn("[Shiprocket Replacement Label Notice]:", labelErr);
+        }
+      }
+
+      // Generate Pickup
+      if (srShipmentId) {
+        try {
+          await callShiprocketApi("courier/generate/pickup", {
+            method: "POST",
+            body: JSON.stringify({ shipment_id: [srShipmentId] }),
+          });
+        } catch (e) {}
+      }
+
+      const trackingUrl = awbCode
+        ? `https://shiprocket.co/tracking/${awbCode}`
+        : `https://shiprocket.co/tracking/${srShipmentId}`;
+
+      const nowIso = new Date().toISOString();
+      const replacementRecord = {
+        provider: "SHIPROCKET",
+        orderId: srOrderId,
+        shipmentId: srShipmentId,
+        awb: awbCode || `REP-PENDING-${srShipmentId}`,
+        courierName,
+        courierId: courierCompanyId,
+        trackingUrl,
+        labelUrl,
+        status: awbCode ? "AWB Assigned" : "Dispatched",
+        deliveryAddress: {
+          name: cName,
+          phone: cPhone,
+          email: cEmail,
+          address: cAddress,
+          city: cCity,
+          state: cState,
+          pincode: cPincode,
+          country: "India",
+        },
+        package: { weight, length, breadth, height },
+        createdAt: nowIso,
+        shippedAt: nowIso,
+        deliveredAt: null,
+      };
+
+      const timelineEvent = {
+        status: "REPLACEMENT_SHIPPED",
+        title: "Replacement Dispatched",
+        description: `Handcrafted replacement piece packed & dispatched via ${courierName}. AWB: ${awbCode || "Pending"}.`,
+        actor: adminIdentifier,
+        timestamp: nowIso,
+      };
+
+      const existingTimeline = Array.isArray(reqData.timeline) ? reqData.timeline : [];
+
+      await updateDoc(reqDocRef, {
+        status: "REPLACEMENT_SHIPPED",
+        replacementShipment: replacementRecord,
+        timeline: [...existingTimeline, timelineEvent],
+        updatedAt: serverTimestamp(),
+      });
+
+      if (reqData.orderId) {
+        try {
+          await updateDoc(doc(db, "orders", reqData.orderId), {
+            replacementStatus: "REPLACEMENT_SHIPPED",
+            updatedAt: serverTimestamp(),
+          });
+        } catch (e) {}
+      }
+
+      // Send dispatch notification email
+      try {
+        fetch(`${process.env.APP_URL || "http://localhost:3000"}/api/send-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "replacement",
+            subType: "REPLACEMENT_DISPATCHED",
+            customerEmail: cEmail,
+            customerName: cName,
+            orderId: reqData.orderNumber || reqData.orderId,
+            requestId,
+            courierName,
+            awbCode,
+            trackingUrl,
+            productName: rawProducts[0]?.productName || "Jewellery Piece",
+          }),
+        }).catch(() => {});
+      } catch (e) {}
+
+      return res.status(200).json({
+        success: true,
+        message: "Replacement shipment successfully created in Shiprocket.",
+        replacementShipment: replacementRecord,
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // ACTION: webhook (Handle Shiprocket Webhook Tracking Callbacks)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "webhook" || req.method === "POST" && req.query?.webhook === "true") {
@@ -832,7 +1380,82 @@ export default async function handler(req, res) {
         return res.status(200).json({ status: "ignored_missing_identifiers" });
       }
 
-      // Query order in Firestore
+      // Check if this AWB belongs to a replacement request (reverse pickup or replacement delivery)
+      if (awbCode) {
+        try {
+          // Check reverse pickup AWBs
+          const revQ = query(collection(db, "replacementRequests"), where("reversePickup.awb", "==", awbCode));
+          const revSnap = await getDocs(revQ);
+          if (!revSnap.empty) {
+            const reqDoc = revSnap.docs[0];
+            const data = reqDoc.data();
+            const statusLower = String(currentStatus || "").toLowerCase();
+
+            let newReqStatus = data.status;
+            if (statusLower.includes("delivered") || statusLower.includes("return delivered")) {
+              newReqStatus = "RETURN_RECEIVED";
+            } else if (statusLower.includes("picked up") || statusLower.includes("in transit")) {
+              newReqStatus = "REVERSE_PICKED_UP";
+            }
+
+            const existingTimeline = Array.isArray(data.timeline) ? data.timeline : [];
+            const newEvent = {
+              status: newReqStatus,
+              title: `Reverse Logistics: ${currentStatus}`,
+              description: eventData.activity || `Courier reverse update: ${currentStatus}`,
+              actor: "Shiprocket Courier",
+              timestamp: new Date().toISOString(),
+            };
+
+            await updateDoc(reqDoc.ref, {
+              status: newReqStatus,
+              "reversePickup.status": currentStatus,
+              timeline: [...existingTimeline, newEvent],
+              updatedAt: serverTimestamp(),
+            });
+
+            console.log(`[Shiprocket Webhook] Updated Reverse Pickup for Request #${reqDoc.id} to ${newReqStatus}`);
+          }
+
+          // Check replacement shipment AWBs
+          const repQ = query(collection(db, "replacementRequests"), where("replacementShipment.awb", "==", awbCode));
+          const repSnap = await getDocs(repQ);
+          if (!repSnap.empty) {
+            const reqDoc = repSnap.docs[0];
+            const data = reqDoc.data();
+            const statusLower = String(currentStatus || "").toLowerCase();
+
+            let newReqStatus = data.status;
+            if (statusLower.includes("delivered")) {
+              newReqStatus = "REPLACEMENT_DELIVERED";
+            } else if (statusLower.includes("out for delivery")) {
+              newReqStatus = "REPLACEMENT_PROCESSING";
+            }
+
+            const existingTimeline = Array.isArray(data.timeline) ? data.timeline : [];
+            const newEvent = {
+              status: newReqStatus,
+              title: `Replacement Delivery: ${currentStatus}`,
+              description: eventData.activity || `Courier delivery update: ${currentStatus}`,
+              actor: "Shiprocket Courier",
+              timestamp: new Date().toISOString(),
+            };
+
+            await updateDoc(reqDoc.ref, {
+              status: newReqStatus,
+              "replacementShipment.status": currentStatus,
+              timeline: [...existingTimeline, newEvent],
+              updatedAt: serverTimestamp(),
+            });
+
+            console.log(`[Shiprocket Webhook] Updated Replacement Delivery for Request #${reqDoc.id} to ${newReqStatus}`);
+          }
+        } catch (repErr) {
+          console.warn("[Shiprocket Webhook Replacement Check Error]:", repErr);
+        }
+      }
+
+      // Query order in Firestore (Standard forward order)
       let targetDoc = null;
       if (awbCode) {
         const q = query(collection(db, "orders"), where("shipping.awbCode", "==", awbCode));

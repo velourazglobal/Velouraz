@@ -70,6 +70,11 @@ export default async function handler(req, res) {
     body?.type === "shipping" ||
     Boolean(body?.awbCode || body?.awbNumber || body?.shipping?.awbCode);
 
+  const isReplacement =
+    req.query?.type === "replacement" ||
+    body?.type === "replacement" ||
+    Boolean(body?.requestId || body?.replacementRequestId);
+
   // ─── ADMIN CREDENTIALS EMAIL ────────────────────────────────────────────────
 
   if (isAdmin) {
@@ -318,6 +323,214 @@ export default async function handler(req, res) {
     } catch (shipErr) {
       console.error("[Velouraz API] Failed to send shipping email:", shipErr);
       return res.status(500).json({ success: false, message: shipErr.message || "Failed to send shipping email." });
+    }
+  }
+
+  // ─── REPLACEMENT NOTIFICATION EMAILS ──────────────────────────────────────
+  if (isReplacement) {
+    const repData = body;
+    const cleanCustomerEmail = normalizeEmail(
+      repData.customerEmail ||
+      repData.email ||
+      repData.shippingAddress?.email
+    );
+
+    if (!cleanCustomerEmail) {
+      return res.status(400).json({ success: false, message: "Customer email is required for replacement notification." });
+    }
+
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+
+    if (!smtpUser || !smtpPass) {
+      console.warn(`[DEV MODE] Simulated replacement email for Request #${repData.requestId || "N/A"}`);
+      return res.status(200).json({ success: true, simulated: true, message: "Dev Mode: Replacement email simulated." });
+    }
+
+    const subType = String(repData.subType || "SUBMITTED").toUpperCase();
+    const customerName = repData.customerName || "Valued Collector";
+    const orderId = repData.orderId || "N/A";
+    const requestId = repData.requestId || "N/A";
+    const courierName = repData.courierName || "Shiprocket Express";
+    const awbCode = repData.awbCode || "N/A";
+    const trackingUrl = repData.trackingUrl || `https://shiprocket.co/tracking/${awbCode}`;
+    const reason = repData.reason || "Defect / Quality issue";
+    const remarks = repData.remarks || repData.rejectionReason || repData.inspectionRemarks || "";
+
+    let subject = `Velouraz Replacement Update - Request #${requestId}`;
+    let heading = "Replacement Request Status Update";
+    let bodyHtml = "";
+
+    if (subType === "SUBMITTED") {
+      subject = `Replacement Request Received - Velouraz Order #${orderId} (Req: #${requestId})`;
+      heading = "We Have Received Your Replacement Request";
+      bodyHtml = `
+        <p style="font-size: 14px; color: #b5adc0; line-height: 1.6; margin: 0 0 20px 0;">
+          Dear <strong>${customerName}</strong>,<br><br>
+          We have successfully received your replacement request for Order <strong>#${orderId}</strong>. Our quality assessment team has been notified and is currently reviewing the photographic evidence you provided.
+        </p>
+        <div style="background: #1e1921; border-radius: 10px; border: 1px solid #2e2633; padding: 20px; margin-bottom: 25px;">
+          <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 14px; color: #ffffff;">
+            <tr><td width="40%" style="color: #8a8292;">Request ID:</td><td style="color: #d4af37; font-weight: bold; font-family: monospace;">#${requestId}</td></tr>
+            <tr><td style="color: #8a8292;">Order Reference:</td><td style="color: #ffffff; font-weight: bold;">#${orderId}</td></tr>
+            <tr><td style="color: #8a8292;">Reason:</td><td style="color: #ffffff;">${reason}</td></tr>
+            <tr><td style="color: #8a8292;">Current Status:</td><td style="color: #22c55e; font-weight: bold;">Under Verification</td></tr>
+          </table>
+        </div>
+        <p style="font-size: 13px; color: #8a8292; line-height: 1.5;">
+          You will receive an update as soon as our jewellery experts complete the review.
+        </p>
+      `;
+    } else if (subType === "APPROVED") {
+      subject = `Replacement Request Approved - Velouraz Order #${orderId}`;
+      heading = "Your Replacement Request Has Been Approved";
+      bodyHtml = `
+        <p style="font-size: 14px; color: #b5adc0; line-height: 1.6; margin: 0 0 20px 0;">
+          Dear <strong>${customerName}</strong>,<br><br>
+          Your replacement request for Request <strong>#${requestId}</strong> has been approved by our quality control specialists. We are arranging for our logistics partner to collect the defective piece from your address.
+        </p>
+        <div style="background: #1e1921; border-radius: 10px; border: 1px solid #2e2633; padding: 20px; margin-bottom: 25px;">
+          <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 14px; color: #ffffff;">
+            <tr><td width="40%" style="color: #8a8292;">Request ID:</td><td style="color: #d4af37; font-weight: bold; font-family: monospace;">#${requestId}</td></tr>
+            <tr><td style="color: #8a8292;">Status:</td><td style="color: #22c55e; font-weight: bold;">Approved - Reverse Pickup Pending</td></tr>
+            ${remarks ? `<tr><td style="color: #8a8292;">Admin Remarks:</td><td style="color: #ffffff;">${remarks}</td></tr>` : ""}
+          </table>
+        </div>
+        <p style="font-size: 13px; color: #8a8292; line-height: 1.5;">
+          Please ensure the jewellery piece is safely placed in its original velvet box or protective packaging ready for the courier pickup.
+        </p>
+      `;
+    } else if (subType === "REJECTED") {
+      subject = `Update on Your Velouraz Replacement Request #${requestId}`;
+      heading = "Regarding Your Replacement Request";
+      bodyHtml = `
+        <p style="font-size: 14px; color: #b5adc0; line-height: 1.6; margin: 0 0 20px 0;">
+          Dear <strong>${customerName}</strong>,<br><br>
+          Thank you for reaching out to us. After carefully reviewing your submitted information and photographs for Request <strong>#${requestId}</strong>, our team was unable to approve this replacement request.
+        </p>
+        <div style="background: #1e1921; border-radius: 10px; border: 1px solid #2e2633; padding: 20px; margin-bottom: 25px;">
+          <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 14px; color: #ffffff;">
+            <tr><td width="40%" style="color: #8a8292;">Request ID:</td><td style="color: #d4af37; font-weight: bold; font-family: monospace;">#${requestId}</td></tr>
+            <tr><td style="color: #8a8292;">Status:</td><td style="color: #f43f5e; font-weight: bold;">Request Rejected</td></tr>
+            <tr><td style="color: #8a8292;">Reason:</td><td style="color: #ffffff;">${remarks || "Does not meet replacement policy eligibility criteria."}</td></tr>
+          </table>
+        </div>
+        <p style="font-size: 13px; color: #8a8292; line-height: 1.5;">
+          If you believe this was in error, please reply to this email or contact our customer concierge at care@velouraz.in.
+        </p>
+      `;
+    } else if (subType === "REVERSE_SCHEDULED") {
+      subject = `Reverse Pickup Scheduled - Velouraz Return (AWB: ${awbCode})`;
+      heading = "Defective Item Pickup Scheduled";
+      bodyHtml = `
+        <p style="font-size: 14px; color: #b5adc0; line-height: 1.6; margin: 0 0 20px 0;">
+          Dear <strong>${customerName}</strong>,<br><br>
+          Our logistics partner <strong>${courierName}</strong> has been scheduled to collect the defective jewellery piece from your address.
+        </p>
+        <div style="background: #1e1921; border-radius: 10px; border: 1px solid #2e2633; padding: 20px; margin-bottom: 25px;">
+          <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 14px; color: #ffffff;">
+            <tr><td width="40%" style="color: #8a8292;">Request ID:</td><td style="color: #d4af37; font-weight: bold; font-family: monospace;">#${requestId}</td></tr>
+            <tr><td style="color: #8a8292;">Reverse Courier:</td><td style="color: #ffffff; font-weight: bold;">${courierName}</td></tr>
+            <tr><td style="color: #8a8292;">Reverse AWB:</td><td style="color: #22c55e; font-weight: bold; font-family: monospace;">${awbCode}</td></tr>
+            ${repData.pickupAddress ? `<tr><td style="color: #8a8292;">Pickup Address:</td><td style="color: #ffffff;">${repData.pickupAddress}</td></tr>` : ""}
+          </table>
+        </div>
+        <div style="text-align: center; margin: 25px 0;">
+          <a href="${trackingUrl}" target="_blank" style="display: inline-block; background-color: #811331; color: #ffffff; text-decoration: none; padding: 12px 26px; border-radius: 8px; font-weight: bold; font-size: 13px; letter-spacing: 1px;">
+            TRACK REVERSE PICKUP
+          </a>
+        </div>
+      `;
+    } else if (subType === "RETURN_RECEIVED" || subType === "INSPECTION_PASSED") {
+      subject = `Returned Item Received - Preparing Brand-New Replacement Piece (Req: #${requestId})`;
+      heading = "Defective Item Received & Verified";
+      bodyHtml = `
+        <p style="font-size: 14px; color: #b5adc0; line-height: 1.6; margin: 0 0 20px 0;">
+          Dear <strong>${customerName}</strong>,<br><br>
+          The defective piece has arrived at our Indore fulfillment center and has passed our craftsmanship inspection. Our master artisans are now packaging a fresh, flawless replacement piece for immediate dispatch.
+        </p>
+        <div style="background: #1e1921; border-radius: 10px; border: 1px solid #2e2633; padding: 20px; margin-bottom: 25px;">
+          <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 14px; color: #ffffff;">
+            <tr><td width="40%" style="color: #8a8292;">Request ID:</td><td style="color: #d4af37; font-weight: bold; font-family: monospace;">#${requestId}</td></tr>
+            <tr><td style="color: #8a8292;">Inspection Status:</td><td style="color: #22c55e; font-weight: bold;">Passed - Approved for Dispatch</td></tr>
+          </table>
+        </div>
+      `;
+    } else if (subType === "REPLACEMENT_DISPATCHED") {
+      subject = `Your Brand New Replacement Piece Has Been Dispatched! (AWB: ${awbCode})`;
+      heading = "Your Replacement Piece is On Its Way";
+      bodyHtml = `
+        <p style="font-size: 14px; color: #b5adc0; line-height: 1.6; margin: 0 0 20px 0;">
+          Dear <strong>${customerName}</strong>,<br><br>
+          We are pleased to inform you that your brand-new replacement jewellery piece has been securely packed in insured luxury casing and dispatched with <strong>${courierName}</strong>.
+        </p>
+        <div style="background: #1e1921; border-radius: 10px; border: 1px solid #2e2633; padding: 20px; margin-bottom: 25px;">
+          <table width="100%" cellpadding="6" cellspacing="0" style="font-size: 14px; color: #ffffff;">
+            <tr><td width="40%" style="color: #8a8292;">Request ID:</td><td style="color: #d4af37; font-weight: bold; font-family: monospace;">#${requestId}</td></tr>
+            <tr><td style="color: #8a8292;">Replacement AWB:</td><td style="color: #22c55e; font-weight: bold; font-family: monospace; font-size: 15px;">${awbCode}</td></tr>
+            <tr><td style="color: #8a8292;">Courier Partner:</td><td style="color: #ffffff; font-weight: bold;">${courierName}</td></tr>
+          </table>
+        </div>
+        <div style="text-align: center; margin: 25px 0;">
+          <a href="${trackingUrl}" target="_blank" style="display: inline-block; background-color: #811331; color: #ffffff; text-decoration: none; padding: 14px 30px; border-radius: 8px; font-weight: bold; font-size: 14px; letter-spacing: 1px;">
+            TRACK REPLACEMENT LIVE
+          </a>
+        </div>
+      `;
+    }
+
+    const fromAddress =
+      process.env.SMTP_FROM ||
+      (smtpUser ? `"Velouraz Concierge" <${smtpUser}>` : '"Velouraz Client Services" <care@velouraz.in>');
+
+    const replacementMailOptions = {
+      from: fromAddress,
+      to: cleanCustomerEmail,
+      subject,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><title>${subject}</title></head>
+        <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #0d0b0e; color: #ffffff;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding: 40px 20px;">
+            <tr>
+              <td align="center">
+                <table width="100%" maxWidth="580" cellpadding="0" cellspacing="0" style="max-width: 580px; background-color: #161217; border: 1px solid #2e2633; border-radius: 14px; overflow: hidden; padding: 40px 30px;">
+                  <tr>
+                    <td align="center" style="padding-bottom: 20px;">
+                      <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; font-weight: normal; letter-spacing: 4px; color: #d4af37;">VELOURAZ</h1>
+                      <p style="margin: 5px 0 0 0; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #8a8292;">Luxury Care & Guarantee</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="border-top: 1px solid #2e2633; padding-top: 25px;">
+                      <h2 style="font-size: 18px; font-weight: 500; color: #ffffff; margin-bottom: 14px;">${heading}</h2>
+                      ${bodyHtml}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" style="border-top: 1px solid #2e2633; margin-top: 30px; padding-top: 25px;">
+                      <p style="font-size: 12px; color: #6b6374; margin: 0;">
+                        © ${new Date().getFullYear()} Velouraz High Jewellery. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
+    };
+
+    try {
+      await sendMailWithFallback(replacementMailOptions);
+      console.log(`[Velouraz API] Replacement notification email sent to ${cleanCustomerEmail} (Sub: ${subType})`);
+      return res.status(200).json({ success: true, message: "Replacement email sent successfully." });
+    } catch (repErr) {
+      console.error("[Velouraz API] Failed to send replacement email:", repErr);
+      return res.status(500).json({ success: false, message: repErr.message || "Failed to send replacement email." });
     }
   }
 

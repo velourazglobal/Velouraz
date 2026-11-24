@@ -9,12 +9,16 @@ import {
   Package, Truck, CheckCircle2, Clock, FileText, Download,
   Search, ArrowLeft, ChevronRight, X, Printer, ShoppingBag,
   CreditCard, ShieldCheck, MapPin, Eye, ExternalLink, Sparkles,
-  RefreshCw, Calendar, Building, Star, MessageSquare, Send, Check, Copy
+  RefreshCw, Calendar, Building, Star, MessageSquare, Send, Check, Copy,
+  RotateCcw
 } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
 import { generateInvoicePDF } from "../utils/invoice";
 import { trackShiprocketOrder, trackShipment, syncShipmentTracking } from "../services/shiprocketService";
 import { syncUserGuestOrders } from "../services/otpService";
+import ReplacementRequestModal from "../components/ReplacementRequestModal";
+import ReplacementTrackingModal from "../components/ReplacementTrackingModal";
+import { checkOrderEligibility, listenToCustomerReplacements, REPLACEMENT_STATUS_MAP } from "../services/replacementService";
 
 const TRACKING_STAGES = [
   "Order Placed",
@@ -88,6 +92,23 @@ const Orders = () => {
   const [modalTrackingLoading, setModalTrackingLoading] = useState(false);
   const [modalTrackingData, setModalTrackingData] = useState(null);
   const [copyFeedback, setCopyFeedback] = useState("");
+
+  // Customer Replacement System State
+  const [customerReplacements, setCustomerReplacements] = useState([]);
+  const [replacementModalOrder, setReplacementModalOrder] = useState(null);
+  const [activeReplacementTrackingId, setActiveReplacementTrackingId] = useState(null);
+
+  // Subscribe to Customer's Replacement Requests
+  useEffect(() => {
+    if (!user?.email && !user?.uid) return;
+    const unsub = listenToCustomerReplacements(
+      user?.email,
+      user?.uid,
+      (list) => setCustomerReplacements(list),
+      (err) => console.warn("Customer replacements listener notice:", err)
+    );
+    return () => unsub();
+  }, [user?.email, user?.uid]);
 
   const handleCopy = (text, label) => {
     if (!text) return;
@@ -568,6 +589,11 @@ const Orders = () => {
                   const currentStatus = shippingObj.currentStatus || order.shippingStatus || order.orderStatus || "Confirmed";
                   const stageIdx = getStageIndex(currentStatus);
 
+                  const repRequest = customerReplacements.find(
+                    (r) => r.orderId === order.id || r.orderNumber === order.orderNumber
+                  );
+                  const eligibility = checkOrderEligibility(order, customerReplacements);
+
                   return (
                     <motion.div
                       key={order.id}
@@ -819,6 +845,39 @@ const Orders = () => {
                         ))}
                       </div>
 
+                      {/* Dedicated Active Replacement Summary Card */}
+                      {repRequest && (
+                        <div className="bg-[#FAF3E8] p-4 rounded-2xl border border-[#C8A46A]/50 space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#C8A46A]/20 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <RotateCcw size={16} className="text-[#8B6B38]" />
+                              <span className="font-bold text-xs uppercase tracking-wider text-[#14111E]">
+                                Replacement Case #{repRequest.requestId}
+                              </span>
+                            </div>
+                            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white text-[#8B6B38] border border-[#C8A46A]/40 uppercase">
+                              {repRequest.statusDetails?.label || repRequest.status}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-[#786C60]">
+                            <div>
+                              <p className="font-semibold text-[#14111E]">Defect Claim: {repRequest.reason}</p>
+                              <p className="truncate italic mt-0.5">"{repRequest.description}"</p>
+                            </div>
+                            <div className="flex sm:justify-end items-center">
+                              <button
+                                type="button"
+                                onClick={() => setActiveReplacementTrackingId(repRequest.id)}
+                                className="px-4 py-2 bg-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#251D33] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              >
+                                <RotateCcw size={13} className="text-[#C8A46A]" /> Track Replacement Details
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Bottom Action Footer */}
                       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pt-4 border-t border-[#E5D7C5]">
                         <div>
@@ -829,6 +888,25 @@ const Orders = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2.5">
+                          {/* Replacement Request / Track Button */}
+                          {repRequest ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveReplacementTrackingId(repRequest.id)}
+                              className="px-4 py-2.5 bg-[#FAF3E8] border border-[#C8A46A] text-[#8B6B38] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#14111E] hover:text-[#FAF6F0] transition-all flex items-center gap-1.5 font-sans cursor-pointer shadow-xs"
+                            >
+                              <RotateCcw size={14} className="text-[#8B6B38]" /> Track Replacement
+                            </button>
+                          ) : eligibility.eligible ? (
+                            <button
+                              type="button"
+                              onClick={() => setReplacementModalOrder(order)}
+                              className="px-4 py-2.5 bg-white border border-[#C8A46A] text-[#8B6B38] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#FAF3E8] transition-all flex items-center gap-1.5 font-sans cursor-pointer shadow-xs"
+                            >
+                              <RotateCcw size={14} className="text-[#C8A46A]" /> Request Replacement
+                            </button>
+                          ) : null}
+
                           <button
                             type="button"
                             onClick={() => handleOpenReviewModal(order)}
@@ -1499,6 +1577,32 @@ const Orders = () => {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* REPLACEMENT REQUEST MODAL */}
+      <AnimatePresence>
+        {replacementModalOrder && (
+          <ReplacementRequestModal
+            isOpen={Boolean(replacementModalOrder)}
+            order={replacementModalOrder}
+            onClose={() => setReplacementModalOrder(null)}
+            onSuccess={(newRep) => {
+              setReplacementModalOrder(null);
+              if (newRep?.id) setActiveReplacementTrackingId(newRep.id);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* REPLACEMENT TRACKING MODAL */}
+      <AnimatePresence>
+        {activeReplacementTrackingId && (
+          <ReplacementTrackingModal
+            isOpen={Boolean(activeReplacementTrackingId)}
+            requestId={activeReplacementTrackingId}
+            onClose={() => setActiveReplacementTrackingId(null)}
+          />
         )}
       </AnimatePresence>
 

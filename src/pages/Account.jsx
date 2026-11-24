@@ -13,7 +13,7 @@ import {
   ShoppingBag, CreditCard, MapPin, Bell, Award, Crown,
   ArrowRight, ArrowLeft, FileText, Truck, Search, Plus, Edit2, Trash2,
   CheckCircle2, Clock, Printer, X, ShieldCheck, Sparkles, Phone, Mail, Map as MapIcon, RefreshCw, Download,
-  Home, Building2, Check
+  Home, Building2, Check, RotateCcw
 } from "lucide-react";
 
 import { generateInvoicePDF } from "../utils/invoice";
@@ -627,6 +627,11 @@ const Account = () => {
                               <span className="px-3 py-1 bg-[#2e0e43]/10 text-[#2e0e43] text-[16px] font-bold uppercase tracking-wider rounded-full">
                                 {order.orderStatus || order.status || "Processing"}
                               </span>
+                              {order.replacementStatus && (
+                                <span className="px-2.5 py-0.5 bg-amber-50 text-amber-900 border border-amber-200 text-xs font-bold uppercase tracking-wider rounded-full flex items-center gap-1">
+                                  <RotateCcw size={11} /> {order.replacementStatus}
+                                </span>
+                              )}
                               <span className="text-base text-[#7B6D63]">
                                 {formatOrderDate(order)}
                               </span>

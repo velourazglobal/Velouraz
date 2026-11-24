@@ -54,12 +54,14 @@ import {
   PanelLeftOpen,
   Camera,
   Video,
+  RotateCcw,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import AdminAuth from "./AdminAuth";
 import MetricCards from "./components/MetricCards";
 import ProductsTable from "./components/ProductsTable";
 import OrdersTable from "./components/OrdersTable";
+import ReplacementsManager from "./components/ReplacementsManager";
 import UsersTable from "./components/UsersTable";
 import CategoriesOverview from "./components/CategoriesOverview";
 import { ProductForm, EditProductForm } from "./components/ProductForms";
@@ -85,6 +87,7 @@ const sidebarItems = [
   { name: "Products", icon: Package, desc: "Catalog" },
   { name: "Product Images", icon: Images, desc: "Manage product photos & gallery" },
   { name: "Orders", icon: ShoppingBag, desc: "Transactions" },
+  { name: "Returns & Replacements", icon: RotateCcw, desc: "Defective item returns & reverse pickups" },
   { name: "Stock Notifications", icon: Bell, desc: "Back-in-stock alert requests" },
   { name: "Categories", icon: List, desc: "Structure" },
   { name: "Blogs", icon: FileText, desc: "Journal & News" },
@@ -421,6 +424,10 @@ const Admin = () => {
             <OrdersTable orders={orders} />
           </>
         );
+      case "Returns & Replacements":
+      case "Returns":
+      case "Replacements":
+        return <ReplacementsManager isDarkMode={isDarkMode} />;
       case "Categories":
         return <CatalogManager type="Categories" />;
       case "SubCategories":

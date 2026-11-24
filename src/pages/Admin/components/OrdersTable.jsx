@@ -1358,6 +1358,14 @@ const OrdersTable = ({ orders = [] }) => {
                           {selectedOrder.orderStatus || selectedOrder.status || "Order Placed"}
                         </span>
                       </div>
+                      {selectedOrder.replacementStatus && (
+                        <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center justify-between">
+                          <span className="font-bold">Replacement: {selectedOrder.replacementStatus}</span>
+                          {selectedOrder.replacementRequestId && (
+                            <span className="font-mono text-[11px] text-[#8B6B38]">#{selectedOrder.replacementRequestId}</span>
+                          )}
+                        </div>
+                      )}
                       <div className="pt-2">
                         <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                           Update Order Status:
