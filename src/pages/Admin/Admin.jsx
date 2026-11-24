@@ -87,7 +87,7 @@ const sidebarItems = [
   { name: "Products", icon: Package, desc: "Catalog" },
   { name: "Product Images", icon: Images, desc: "Manage product photos & gallery" },
   { name: "Orders", icon: ShoppingBag, desc: "Transactions" },
-  { name: "Returns & Replacements", icon: RotateCcw, desc: "Defective item returns & reverse pickups" },
+  { name: "Replacement Manager", icon: RotateCcw, desc: "Customer replacement requests & reverse pickups" },
   { name: "Stock Notifications", icon: Bell, desc: "Back-in-stock alert requests" },
   { name: "Categories", icon: List, desc: "Structure" },
   { name: "Blogs", icon: FileText, desc: "Journal & News" },
@@ -424,6 +424,8 @@ const Admin = () => {
             <OrdersTable orders={orders} />
           </>
         );
+      case "Replacement Manager":
+      case "ReplacementsManager":
       case "Returns & Replacements":
       case "Returns":
       case "Replacements":
@@ -560,6 +562,7 @@ const Admin = () => {
         {/* Catalog entries: Orders, Coupon Manager, Tags Manager, Categories, etc */}
         {[
           ["Orders", ShoppingBag, "Orders"],
+          ["Replacement Manager", RotateCcw, "Replacement Manager"],
           ["Stock Notifications", Bell, "Stock Notifications"],
           ["Coupon Manager", TicketPercent, "Coupon Manager"],
           ["Tags Manager", Tags, "Tags Manager"],

@@ -58,7 +58,8 @@ import {
   TrendingUp,
   ArrowUpRight,
   ShieldCheck,
-  Video
+  Video,
+  RotateCcw,
 } from "lucide-react";
 
 import SuperAdminAuth from "./SuperAdminAuth";
@@ -76,6 +77,7 @@ import GalleryManager from "../Admin/components/GalleryManager";
 import NewsManager from "../Admin/components/NewsManager";
 import TagsManager from "../Admin/components/TagsManager";
 import CouponManager from "../Admin/components/CouponManager";
+import ReplacementsManager from "../Admin/components/ReplacementsManager";
 import AdminsTable from "./components/AdminsTable";
 import SuperAdminOrders from "./components/SuperAdminOrders";
 import { listenToProducts, listenToTrashedProducts, trashProduct, restoreProduct, permanentlyDeleteProduct } from "../../services/productService";
@@ -91,6 +93,7 @@ const sidebarItems = [
   { name: "Products", icon: Package, desc: "Product Catalog & Trashed Items" },
   { name: "Product Images", icon: Images, desc: "Manage Product Photos & Gallery" },
   { name: "Orders", icon: ShoppingBag, desc: "Live Customer Transactions & Status Updates" },
+  { name: "Replacement Manager", icon: RotateCcw, desc: "Customer replacement requests & reverse pickups" },
   { name: "Inventory", icon: Database, desc: "Stock Adjustments & Low Stock Control" },
   { name: "Billing", icon: CreditCard, desc: "Gross Income & Invoice Audit Logs" },
   { name: "Categories", icon: List, desc: "Store Categories" },
@@ -908,6 +911,13 @@ const SuperAdmin = () => {
 
       case "Orders":
         return <SuperAdminOrders orders={orders} isDarkMode={isDarkMode} />;
+
+      case "Replacement Manager":
+      case "ReplacementsManager":
+      case "Returns & Replacements":
+      case "Returns":
+      case "Replacements":
+        return <ReplacementsManager isDarkMode={isDarkMode} />;
 
       case "Inventory":
         return (
