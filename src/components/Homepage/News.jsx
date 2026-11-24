@@ -10,8 +10,17 @@ import 'swiper/css';
 import 'swiper/css/free-mode';
 
 const ReelItem = ({ post, index }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const posterUrl = getVideoPosterUrl(post.video, { width: 480 });
+  const videoSrc = getOptimizedVideoUrl(post.video, { width: 480 });
+  const videoRef = React.useRef(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.defaultMuted = true;
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [videoSrc]);
 
   return (
     <motion.div
@@ -19,32 +28,21 @@ const ReelItem = ({ post, index }) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: index * 0.1 }}
-      onMouseEnter={() => setIsPlaying(true)}
-      onMouseLeave={() => setIsPlaying(false)}
       onClick={() => window.open(post.url, '_blank')}
       className="group relative aspect-[9/16] overflow-hidden cursor-pointer rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-700 bg-[#170624]"
     >
-      {/* Video Reel or Poster Preview */}
-      {isPlaying ? (
-        <video
-          src={getOptimizedVideoUrl(post.video, { width: 480 })}
-          poster={posterUrl}
-          preload="none"
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-        />
-      ) : (
-        <img
-          src={posterUrl}
-          alt={post.title || "Instagram reel"}
-          loading="lazy"
-          decoding="async"
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-        />
-      )}
+      {/* Video Reel Playing Continuously */}
+      <video
+        ref={videoRef}
+        src={videoSrc}
+        poster={posterUrl}
+        preload="auto"
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+      />
 
       {/* Dark Gradient Overlay for Readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#14061F]/90 via-black/20 to-[#14061F]/40 group-hover:from-[#14061F]/95 transition-all duration-500" />

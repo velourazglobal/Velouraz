@@ -127,17 +127,57 @@ export const isProductNewArrival = (p) => {
 
 /**
  * Check if a product is a Best Seller.
- * Strict check: must be explicitly flagged or tagged, and not explicitly disabled.
+ * Prioritizes tags, badges, and flags.
  */
 export const isProductBestseller = (p) => {
   if (!p) return false;
-  if (p.isBestseller === false) return false;
-  if (p.isBestseller === true || p.bestseller === true) return true;
+
+  // 1. Check tags (array of strings, array of objects, or comma-separated string)
+  const tagList = Array.isArray(p.tags)
+    ? p.tags
+    : typeof p.tags === "string"
+    ? p.tags.split(",")
+    : [];
+
+  const hasBestsellerTag = tagList.some((t) => {
+    const raw = typeof t === "object" && t !== null ? t.name || t.tag || t.label || "" : t;
+    const s = String(raw || "").toLowerCase().trim();
+    return (
+      s === "bestsellers" ||
+      s === "bestseller" ||
+      s === "best seller" ||
+      s === "best sellers" ||
+      s.includes("bestseller") ||
+      s.includes("best seller")
+    );
+  });
+  if (hasBestsellerTag) return true;
+
+  // 2. Check tag single field
+  if (p.tag) {
+    const s = String(p.tag).toLowerCase().trim();
+    if (
+      s === "bestsellers" ||
+      s === "bestseller" ||
+      s === "best seller" ||
+      s === "best sellers" ||
+      s.includes("bestseller")
+    ) {
+      return true;
+    }
+  }
+
+  // 3. Check explicit booleans
+  if (p.isBestseller === true || p.bestseller === true || p.bestSeller === true || p.isBestSeller === true) {
+    return true;
+  }
+
+  // 4. Check badge or badges
   if (p.badge && String(p.badge).toLowerCase().includes("bestseller")) return true;
-  if (Array.isArray(p.tags) && p.tags.some((t) => {
-    const s = String(t).toLowerCase().trim();
-    return s === "bestsellers" || s === "bestseller" || s === "best seller" || s === "best sellers";
-  })) return true;
+  if (Array.isArray(p.badges) && p.badges.some((b) => String(b).toLowerCase().includes("bestseller"))) {
+    return true;
+  }
+
   return false;
 };
 

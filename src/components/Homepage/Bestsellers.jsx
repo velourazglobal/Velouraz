@@ -8,7 +8,7 @@ import { db } from '../Firebase';
 import { useStore } from '../../hooks/useStore';
 import AddToCartModal from '../AddToCartModal';
 import OptimizedImage from '../common/OptimizedImage';
-import { isProductBestseller } from '../../services/productService';
+import { isProductBestseller, listenToProducts } from '../../services/productService';
 
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -49,25 +49,32 @@ const BestSellers = () => {
   }, []);
 
   useEffect(() => {
-    const fetchBestsellers = async () => {
-      try {
-        const q = query(collection(db, "products"), orderBy("createdAt", "desc"), limit(24));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          const filtered = list.filter(isProductBestseller);
-          setProducts(filtered);
-        } else {
-          setProducts([]);
-        }
-      } catch (e) {
-        console.error("Error fetching bestsellers:", e);
-        setProducts([]);
-      } finally {
+    setLoading(true);
+    const unsubscribe = listenToProducts(
+      (allProducts) => {
+        const filtered = allProducts.filter(isProductBestseller);
+        setProducts(filtered);
         setLoading(false);
+      },
+      async (err) => {
+        console.warn("Real-time products error in Bestsellers, fallback to getDocs:", err);
+        try {
+          const snap = await getDocs(collection(db, "products"));
+          if (!snap.empty) {
+            const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(p => !p.deleted);
+            setProducts(list.filter(isProductBestseller));
+          } else {
+            setProducts([]);
+          }
+        } catch (e) {
+          console.error("Fallback error fetching bestsellers:", e);
+          setProducts([]);
+        } finally {
+          setLoading(false);
+        }
       }
-    };
-    fetchBestsellers();
+    );
+    return () => unsubscribe();
   }, []);
 
   const { addToWishlist, isInWishlist, addToCart, isInCart } = useStore();
