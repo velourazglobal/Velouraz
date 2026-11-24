@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import {
   getOptimizedImageUrl,
-  getThumbnailUrl,
   getImageSrcSet,
   handleImageError,
+  CLOUDINARY_PRESETS,
 } from "../../config/cloudinary";
 
 /**
@@ -23,11 +23,12 @@ const OptimizedImage = ({
   width,
   height,
   aspectRatio,
+  preset, // 'thumbnail' | 'productCard' | 'detailMain' | 'detailZoom' | 'banner'
   priority = false, // True for above-the-fold critical LCP images
   sizes,
   widths,
-  crop = "limit",
-  quality = "auto",
+  crop,
+  quality,
   className = "",
   style = {},
   objectFit = "cover",
@@ -54,17 +55,24 @@ const OptimizedImage = ({
     );
   }
 
+  // Resolve preset defaults
+  const presetConfig = preset && CLOUDINARY_PRESETS[preset] ? CLOUDINARY_PRESETS[preset] : {};
+  const targetWidth = width || presetConfig.width;
+  const targetHeight = height || presetConfig.height;
+  const targetCrop = crop || presetConfig.crop || (targetWidth || targetHeight ? "limit" : undefined);
+  const targetQuality = quality || presetConfig.quality || "auto";
+
   // Optimize base src
   const optimizedSrc = getOptimizedImageUrl(src, {
-    width: width || (crop !== "limit" ? undefined : undefined),
-    height,
-    crop,
-    quality,
+    width: targetWidth,
+    height: targetHeight,
+    crop: targetCrop,
+    quality: targetQuality,
   });
 
   // Generate responsive srcset if widths are provided or if responsive
   const srcSetString = widths
-    ? getImageSrcSet(src, widths, { crop, quality })
+    ? getImageSrcSet(src, widths, { crop: targetCrop, quality: targetQuality })
     : undefined;
 
   const combinedStyle = {

@@ -3,11 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Autoplay } from 'swiper/modules';
 import { Loader2, Heart, ChevronLeft, ChevronRight, Globe, Star, ShoppingBag } from 'lucide-react';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, limit } from 'firebase/firestore';
 import { db } from '../Firebase';
 import { useStore } from '../../hooks/useStore';
 import AddToCartModal from '../AddToCartModal';
-import { getOptimizedImageUrl, getThumbnailUrl, getImageSrcSet, getOptimizedVideoUrl, getVideoPosterUrl, handleImageError, handleVideoError } from '../../config/cloudinary';
+import OptimizedImage from '../common/OptimizedImage';
 import { isProductBestseller } from '../../services/productService';
 
 import 'swiper/css';
@@ -51,7 +51,7 @@ const BestSellers = () => {
   useEffect(() => {
     const fetchBestsellers = async () => {
       try {
-        const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+        const q = query(collection(db, "products"), orderBy("createdAt", "desc"), limit(24));
         const snap = await getDocs(q);
         if (!snap.empty) {
           const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -96,16 +96,18 @@ const BestSellers = () => {
 
   return (
     <section className="py-10 md:py-14 relative overflow-hidden bg-[#FAF7F2]">
-      {/* Background Video */}
-      <video
+      {/* Ambient luxury lighting */}
+      <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#C8A97A]/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-[#2E0E43]/5 rounded-full blur-3xl pointer-events-none" />
+      {/* <video
         ref={videoRef}
         autoPlay loop muted playsInline
         onLoadedMetadata={(e) => { e.target.playbackRate = 0.6; }}
         onPlay={(e) => { e.target.playbackRate = 0.6; }}
         className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0 opacity-40"
       >
-        <source src="https://res.cloudinary.com/duzwys877/video/upload/v1785058045/Animate_two_airplanes_looping_202607261457_fojd30.mp4" type="video/mp4" />
-      </video>
+
+      </video> */}
 
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
 
@@ -199,21 +201,15 @@ const BestSellers = () => {
                     >
                       {/* Image Container */}
                       <div className="relative aspect-[4/4.3] w-full overflow-hidden bg-[#FAF6F0]">
-                        {(() => {
-                          const rawImg = product.image || product.images?.[0] || 'img/jewellery/j.png';
-                          return (
-                            <img
-                              src={getThumbnailUrl(rawImg, 420)}
-                              srcSet={getImageSrcSet(rawImg, [320, 480, 640])}
-                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                              alt={product.name}
-                              loading="lazy"
-                              decoding="async"
-                              onError={(e) => handleImageError(e, rawImg)}
-                              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                            />
-                          );
-                        })()}
+                        <OptimizedImage
+                          src={product.image || product.images?.[0] || 'img/jewellery/j.png'}
+                          alt={product.name}
+                          preset="productCard"
+                          widths={[320, 440, 640]}
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                          aspectRatio="4/4.3"
+                          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                        />
 
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />

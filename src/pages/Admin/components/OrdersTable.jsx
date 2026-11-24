@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { statusBadgeClasses, ORDER_STATUSES } from "./AdminUtils";
 import { motion, AnimatePresence } from "framer-motion";
+import { getThumbnailUrl, handleImageError } from "../../../config/cloudinary";
 import { db } from "../../../components/Firebase";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import {
@@ -621,8 +622,11 @@ const OrdersTable = ({ orders = [] }) => {
                       <div className="flex items-center gap-2">
                         {items[0]?.image ? (
                           <img
-                            src={items[0].image}
+                            src={getThumbnailUrl(items[0].image, 64)}
                             alt=""
+                            loading="lazy"
+                            decoding="async"
+                            onError={(e) => handleImageError(e, items[0].image)}
                             className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0"
                           />
                         ) : (
@@ -1663,8 +1667,11 @@ const OrdersTable = ({ orders = [] }) => {
                               <div className="flex items-center gap-3">
                                 {item.image || item.primaryImage ? (
                                   <img
-                                    src={item.image || item.primaryImage}
+                                    src={getThumbnailUrl(item.image || item.primaryImage, 80)}
                                     alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                    onError={(e) => handleImageError(e, item.image || item.primaryImage)}
                                     className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0"
                                   />
                                 ) : (

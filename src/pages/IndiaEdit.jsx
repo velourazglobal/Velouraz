@@ -1,5 +1,5 @@
 import { getOptimizedVideoUrl, getVideoPosterUrl, handleVideoError } from '../config/cloudinary';
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles, Gem, Crown } from 'lucide-react';
@@ -7,6 +7,7 @@ import Breadcrumb from '../components/Breadcrumb';
 
 const IndiaEdit = () => {
   const navigate = useNavigate();
+  const [hoveredCard, setHoveredCard] = useState(null);
 
   const handleSilverClick = () => {
     navigate('/shop?country=India&tag=India Silver');
@@ -58,20 +59,32 @@ const IndiaEdit = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             onClick={handleSilverClick}
+            onMouseEnter={() => setHoveredCard('silver')}
+            onMouseLeave={() => setHoveredCard(null)}
             className="group relative bg-[#1A1816] rounded-3xl overflow-hidden shadow-[0_14px_40px_rgba(0,0,0,0.08)] hover:shadow-[0_20px_50px_rgba(184,147,85,0.25)] transition-all duration-700 cursor-pointer min-h-[550px] sm:min-h-[600px] flex flex-col justify-end border border-transparent hover:border-[#C8A46A]/50"
           >
-            {/* Background Video */}
-            <video
-              src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
-              poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
-              preload="metadata"
-              onError={(e) => handleVideoError(e, "https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-105"
-            />
+            {/* Background Media: Poster by default, Video on hover */}
+            {hoveredCard === 'silver' ? (
+              <video
+                src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
+                poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
+                preload="metadata"
+                onError={(e) => handleVideoError(e, "https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-105"
+              />
+            ) : (
+              <img
+                src={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968773/1008051119_1788964981716435_f8jyrw.mp4")}
+                alt="The Silver Edit"
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-105"
+              />
+            )}
 
             {/* Gradient Overlays */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/90 transition-opacity duration-700" />
@@ -112,20 +125,32 @@ const IndiaEdit = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15 }}
             onClick={handleLuxeClick}
+            onMouseEnter={() => setHoveredCard('luxe')}
+            onMouseLeave={() => setHoveredCard(null)}
             className="group relative bg-[#1A1816] rounded-3xl overflow-hidden shadow-[0_14px_40px_rgba(0,0,0,0.08)] hover:shadow-[0_20px_50px_rgba(184,147,85,0.25)] transition-all duration-700 cursor-pointer min-h-[550px] sm:min-h-[600px] flex flex-col justify-end border border-transparent hover:border-[#C8A46A]/50"
           >
-            {/* Background Video */}
-            <video
-              src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
-              poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
-              preload="metadata"
-              onError={(e) => handleVideoError(e, "https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-105"
-            />
+            {/* Background Media: Poster by default, Video on hover */}
+            {hoveredCard === 'luxe' ? (
+              <video
+                src={getOptimizedVideoUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
+                poster={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
+                preload="metadata"
+                onError={(e) => handleVideoError(e, "https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-105"
+              />
+            ) : (
+              <img
+                src={getVideoPosterUrl("https://res.cloudinary.com/dcjn4y284/video/upload/v1788968870/387140918_1788965268020976_lfcapn.mp4")}
+                alt="The Luxe Edit"
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-105"
+              />
+            )}
 
             {/* Gradient Overlays */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/90 transition-opacity duration-700" />

@@ -1,4 +1,5 @@
 import { sendMailWithFallback } from "../server-utils/mailer.js";
+import { verifyAdminRequest } from "../server-utils/firebaseServer.js";
 
 const normalizeEmail = (email) => {
   if (!email || typeof email !== "string") return "";
@@ -72,6 +73,14 @@ export default async function handler(req, res) {
   // ─── ADMIN CREDENTIALS EMAIL ────────────────────────────────────────────────
 
   if (isAdmin) {
+    const authCheck = await verifyAdminRequest(req);
+    if (!authCheck.authorized) {
+      return res.status(401).json({
+        success: false,
+        message: authCheck.error || "Unauthorized. SuperAdmin privileges required to send admin credentials.",
+      });
+    }
+
     const cleanEmail = normalizeEmail(body?.email);
     const adminId = body?.adminId || "";
     const displayName = body?.displayName || adminId;

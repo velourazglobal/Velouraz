@@ -59,8 +59,8 @@ const Hero = () => {
           <video
             key={heroConfig.videoURL}
             ref={videoRef}
-            src={getOptimizedVideoUrl(heroConfig.videoURL)}
-            poster={getVideoPosterUrl(heroConfig.videoURL)}
+            src={getOptimizedVideoUrl(heroConfig.videoURL, { width: typeof window !== "undefined" && window.innerWidth < 768 ? 540 : 1280 })}
+            poster={getVideoPosterUrl(heroConfig.videoURL, { width: typeof window !== "undefined" && window.innerWidth < 768 ? 540 : 1280 })}
             autoPlay
             muted
             loop

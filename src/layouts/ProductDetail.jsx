@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { db } from "../components/Firebase";
-import { doc, onSnapshot, collection, getDocs } from "firebase/firestore";
+import { doc, onSnapshot, collection, getDocs, query, where, limit } from "firebase/firestore";
 import { useAuth } from "../components/useAuth";
 import { useStore } from '../hooks/useStore';
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import AddToCartModal from "../components/AddToCartModal";
 import NotifyMeModal from "../components/NotifyMeModal";
-import { getOptimizedImageUrl, getThumbnailUrl, getImageSrcSet, handleImageError } from "../config/cloudinary";
+import OptimizedImage from "../components/common/OptimizedImage";
 import useSEO from "../hooks/useSEO";
 
 const ProductDetail = () => {
@@ -123,25 +123,35 @@ const ProductDetail = () => {
     const fetchRelated = async () => {
       setRelatedLoading(true);
       try {
-        const snap = await getDocs(collection(db, "products"));
-        const all = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.id !== id);
-
-        // Same category
         const currentCategory = product?.category;
-        const byCat = currentCategory
-          ? all.filter(p => p.category && p.category.toLowerCase() === currentCategory.toLowerCase())
-          : [];
-        setRelatedProducts(byCat.slice(0, 5));
-
-        // Same country
         const currentCountry = (product?.inspired_country || product?.country || '').toLowerCase().trim();
-        const byCountry = currentCountry
-          ? all.filter(p => {
-            const pCountry = (p.inspired_country || p.country || '').toLowerCase().trim();
-            return pCountry && pCountry === currentCountry;
-          })
-          : [];
-        setSameCountryProducts(byCountry.slice(0, 5));
+
+        // Targeted category query with limit(8) instead of whole-collection read
+        const catQuery = currentCategory
+          ? query(collection(db, "products"), where("category", "==", currentCategory), limit(8))
+          : query(collection(db, "products"), limit(8));
+
+        const catSnap = await getDocs(catQuery);
+        const catList = catSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(p => p.id !== id && !p.deleted);
+        setRelatedProducts(catList.slice(0, 5));
+
+        // Targeted country query if country specified
+        if (currentCountry) {
+          const countryQuery = query(
+            collection(db, "products"),
+            where("country", "==", product.country || product.inspired_country),
+            limit(8)
+          );
+          const countrySnap = await getDocs(countryQuery);
+          const countryList = countrySnap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(p => p.id !== id && !p.deleted);
+          setSameCountryProducts(countryList.slice(0, 5));
+        } else {
+          setSameCountryProducts([]);
+        }
       } catch (err) {
         console.error("Error loading related products:", err);
       } finally {
@@ -319,12 +329,12 @@ const ProductDetail = () => {
                           : 'border-[#E5D7C5] opacity-60 hover:opacity-100 hover:border-[#C8A46A]'
                           }`}
                       >
-                        <img
-                          src={getOptimizedImageUrl(img)}
+                        <OptimizedImage
+                          src={img}
+                          preset="thumbnail"
+                          width={80}
+                          height={104}
                           alt={`View ${i + 1}`}
-                          loading="lazy"
-                          decoding="async"
-                          onError={(e) => handleImageError(e, img)}
                           className="w-full h-full object-cover"
                         />
                         {selectedImageIndex === i && (
@@ -346,11 +356,12 @@ const ProductDetail = () => {
                     onMouseLeave={handleMouseLeave}
                     onClick={() => setIsLightboxOpen(true)}
                   >
-                    <img
-                      src={getOptimizedImageUrl(activeImage)}
+                    <OptimizedImage
+                      src={activeImage}
                       alt={product.name}
+                      preset="detailMain"
+                      priority={true}
                       style={zoomStyle}
-                      onError={(e) => handleImageError(e, activeImage)}
                       className="w-full h-full object-cover transition-transform duration-100 ease-out"
                     />
 
@@ -751,9 +762,11 @@ const ProductDetail = () => {
                         className="group bg-white rounded-xl border border-[#E5D7C5] overflow-hidden cursor-pointer shadow-xs hover:shadow-lg hover:border-[#C8A46A] transition-all duration-400 flex flex-col"
                       >
                         <div className="aspect-square bg-[#F6F2EC] overflow-hidden relative">
-                          <img
+                          <OptimizedImage
                             src={rel.image || rel.images?.[0] || '/img/jewellery/j.png'}
                             alt={rel.name}
+                            preset="productCard"
+                            aspectRatio="1/1"
                             className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-600"
                           />
                           {rel.original_price > rel.price && (
@@ -837,9 +850,11 @@ const ProductDetail = () => {
                         className="group bg-white rounded-xl border border-[#E5D7C5] overflow-hidden cursor-pointer shadow-xs hover:shadow-lg hover:border-[#C8A46A] transition-all duration-400 flex flex-col"
                       >
                         <div className="aspect-square bg-[#F6F2EC] overflow-hidden relative">
-                          <img
+                          <OptimizedImage
                             src={rel.image || rel.images?.[0] || '/img/jewellery/j.png'}
                             alt={rel.name}
+                            preset="productCard"
+                            aspectRatio="1/1"
                             className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-600"
                           />
                           {rel.original_price > rel.price && (
@@ -886,9 +901,12 @@ const ProductDetail = () => {
           {/* Left: Product Thumbnail, Title & Price (Hidden on Mobile View) */}
           <div className="hidden sm:flex items-center gap-3 min-w-0">
             <div className="hidden sm:block w-10 h-12 rounded-xl overflow-hidden bg-[#F6F2EC] border border-[#E5D7C5] shrink-0">
-              <img
-                src={getOptimizedImageUrl(activeImage)}
+              <OptimizedImage
+                src={activeImage}
                 alt={product.name}
+                preset="thumbnail"
+                width={48}
+                height={48}
                 className="w-full h-full object-cover"
               />
             </div>
@@ -986,9 +1004,10 @@ const ProductDetail = () => {
               >
                 <X size={18} />
               </button>
-              <img
+              <OptimizedImage
                 src={activeImage}
                 alt={product.name}
+                preset="detailZoom"
                 className="w-full max-h-[85vh] object-contain rounded-2xl"
               />
             </motion.div>

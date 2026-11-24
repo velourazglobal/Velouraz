@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { verifyAdminRequest } from "../server-utils/firebaseServer.js";
 
 // ─── Cloudinary Deletion API ────────────────────────────────────────────────
 // Requires: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
@@ -30,6 +31,14 @@ export default async function handler(req, res) {
     } catch {
       // fallback
     }
+  }
+
+  // Verify administrator authorization before proceeding with media deletion
+  const authCheck = await verifyAdminRequest(req);
+  if (!authCheck.authorized) {
+    return res.status(401).json({
+      error: authCheck.error || "Unauthorized. Administrator credentials required to delete media.",
+    });
   }
 
   const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME;

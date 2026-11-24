@@ -7,7 +7,6 @@ import {
   Clock, Bell, Send, CheckCircle2, MessageSquare, ArrowRight, Package, Globe
 } from 'lucide-react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { useAuth } from '../components/useAuth';
 import { useStore } from '../hooks/useStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import QuickView from '../components/QuickView';
@@ -15,7 +14,7 @@ import Breadcrumb from '../components/Breadcrumb';
 import AddToCartModal from '../components/AddToCartModal';
 import { listenToTags } from '../services/tagsService';
 import { isProductNewArrival, isProductBestseller } from '../services/productService';
-import { getOptimizedImageUrl, handleImageError } from '../config/cloudinary';
+import OptimizedImage from '../components/common/OptimizedImage';
 import useSEO from '../hooks/useSEO';
 
 const fallbackProducts = [
@@ -328,6 +327,7 @@ const Shop = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [addModalProduct, setAddModalProduct] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(24);
 
   // Filter States
   const [priceLimit, setPriceLimit] = useState(100000);
@@ -538,23 +538,29 @@ const Shop = () => {
   }, [searchParams]);
 
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
     const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      if (!snap.empty) {
-        const dbProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setProducts(dbProducts);
-      } else {
+    getDocs(q)
+      .then((snap) => {
+        if (!isMounted) return;
+        if (!snap.empty) {
+          const dbProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setProducts(dbProducts);
+        } else {
+          setProducts(fallbackProducts);
+        }
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        console.error("Error fetching products:", error);
         setProducts(fallbackProducts);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.error("Error listening to products:", error);
-      setProducts(fallbackProducts);
-      setLoading(false);
-    });
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
 
-    return () => unsubscribe();
+    return () => { isMounted = false; };
   }, []);
 
   const { addToCart, addToWishlist, isInCart, isInWishlist } = useStore();
@@ -723,6 +729,15 @@ const Shop = () => {
     if (sortBy === 'bestsellers') return (b.salesCount || b.stock || 0) - (a.salesCount || a.stock || 0);
     return 0;
   });
+
+  // Reset pagination to first 24 whenever filter criteria change
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [searchTerm, selectedCategory, selectedCountry, priceLimit, selectedMaterials, selectedTags, availability, sortBy]);
+
+  const visibleProducts = useMemo(() => {
+    return sortedProducts.slice(0, visibleCount);
+  }, [sortedProducts, visibleCount]);
 
   // Refined Sidebar Content Component
   const FilterSidebarContent = () => (
@@ -1092,7 +1107,7 @@ const Shop = () => {
               </div>
             ) : sortedProducts.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-                {sortedProducts.map((product, index) => {
+                {visibleProducts.map((product, index) => {
                   const inWishlist = isInWishlist ? isInWishlist(product.id) : false;
                   const isSoldOut = product.stock <= 0;
 
@@ -1108,19 +1123,15 @@ const Shop = () => {
                     >
                       {/* Image Box */}
                       <div className="relative aspect-square w-full overflow-hidden bg-[#F3ECE1] border-b border-[#EBE3D7]/60">
-                        {(() => {
-                          const rawImg = product.image || product.images?.[0] || 'img/jewellery/j.png';
-                          return (
-                            <img
-                              src={getOptimizedImageUrl(rawImg)}
-                              alt={product.name}
-                              loading="lazy"
-                              decoding="async"
-                              onError={(e) => handleImageError(e, rawImg)}
-                              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                            />
-                          );
-                        })()}
+                        <OptimizedImage
+                          src={product.image || product.images?.[0] || 'img/jewellery/j.png'}
+                          alt={product.name}
+                          preset="productCard"
+                          aspectRatio="1/1"
+                          widths={[280, 440, 600]}
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                          className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                        />
 
                         {/* Badges */}
                         <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
@@ -1199,6 +1210,22 @@ const Shop = () => {
                     </motion.div>
                   );
                 })}
+
+                {/* Batch Pagination Control */}
+                {visibleCount < sortedProducts.length && (
+                  <div className="col-span-full flex flex-col items-center justify-center pt-8 pb-4 gap-3">
+                    <p className="text-xs text-[#7B6D63] font-sans">
+                      Showing {Math.min(visibleCount, sortedProducts.length)} of {sortedProducts.length} pieces
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount((prev) => prev + 24)}
+                      className="px-8 py-3.5 rounded-full border border-[#2e0e43] text-[#2e0e43] hover:bg-[#2e0e43] hover:text-white font-sans text-xs font-bold uppercase tracking-[0.2em] transition-all duration-300 shadow-xs cursor-pointer hover:shadow-md active:scale-95"
+                    >
+                      Load More Creations
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (() => {
               const countryInfo = selectedCountry !== 'All' ? getCountryDetails(selectedCountry, countriesMetadata) : null;

@@ -504,7 +504,7 @@ const ProductImageManager = ({ products: initialProducts = [], isDarkMode = fals
                             {productImages[0] ? (
                               <>
                                 <img
-                                  src={getThumbnailUrl(productImages[0])}
+                                  src={getThumbnailUrl(productImages[0], 96)}
                                   alt={product.name}
                                   loading="lazy"
                                   decoding="async"
@@ -556,7 +556,7 @@ const ProductImageManager = ({ products: initialProducts = [], isDarkMode = fals
                                   }`}
                               >
                                 <img
-                                  src={getThumbnailUrl(imgUrl)}
+                                  src={getThumbnailUrl(imgUrl, 112)}
                                   alt={`Product photo ${idx + 1}`}
                                   loading="lazy"
                                   decoding="async"
@@ -690,7 +690,7 @@ const ProductImageManager = ({ products: initialProducts = [], isDarkMode = fals
                 <X size={20} />
               </button>
               <img
-                src={previewImageUrl}
+                src={getOptimizedImageUrl(previewImageUrl, { width: 1200 })}
                 alt="Full size preview"
                 className="max-h-[85vh] w-auto object-contain rounded-xl mx-auto"
               />
@@ -838,8 +838,11 @@ const ProductImageManager = ({ products: initialProducts = [], isDarkMode = fals
                             }`}
                         >
                           <img
-                            src={imgUrl}
+                            src={getThumbnailUrl(imgUrl, 400)}
                             alt={`Gallery item ${index + 1}`}
+                            loading="lazy"
+                            decoding="async"
+                            onError={(e) => handleImageError(e, imgUrl)}
                             className="h-full w-full object-cover"
                           />
 

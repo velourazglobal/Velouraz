@@ -24,9 +24,35 @@ export const cloudinaryConfig = {
 };
 
 /**
+ * Pre-upload file validation: enforces file size caps and MIME type constraints
+ */
+export const validateUploadFile = (file) => {
+  if (!file) throw new Error("No file selected.");
+
+  const isVideo = file.type?.startsWith("video/");
+  const isImage = file.type?.startsWith("image/");
+
+  if (!isImage && !isVideo) {
+    throw new Error("Invalid file format. Only standard images and videos are permitted.");
+  }
+
+  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+  const MAX_VIDEO_SIZE = 40 * 1024 * 1024; // 40MB
+
+  if (isImage && file.size > MAX_IMAGE_SIZE) {
+    throw new Error(`Image is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed image size is 10MB.`);
+  }
+
+  if (isVideo && file.size > MAX_VIDEO_SIZE) {
+    throw new Error(`Video is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Maximum allowed video size is 40MB.`);
+  }
+};
+
+/**
  * Uploads a file to Cloudinary directly via browser unsigned preset
  */
 export const uploadToCloudinary = async (file) => {
+  validateUploadFile(file);
   const data = new FormData();
   data.append("file", file);
   data.append("upload_preset", cloudinaryConfig.uploadPreset);
@@ -53,6 +79,7 @@ export const uploadToCloudinary = async (file) => {
  * Uploads a file to Cloudinary with real-time percentage progress callback
  */
 export const uploadToCloudinaryWithProgress = (file, onProgress) => {
+  validateUploadFile(file);
   return new Promise((resolve, reject) => {
     const data = new FormData();
     data.append("file", file);
@@ -91,6 +118,26 @@ export const uploadToCloudinaryWithProgress = (file, onProgress) => {
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.send(data);
   });
+};
+
+/**
+ * Standardized Cloudinary delivery presets based on real responsive display dimensions.
+ * Ensures consistent, cached, and bandwidth-efficient delivery across the application.
+ */
+export const CLOUDINARY_PRESETS = {
+  thumbnail: { width: 280, crop: "limit", quality: "auto", format: "auto" },
+  productCard: { width: 440, crop: "limit", quality: "auto", format: "auto" },
+  detailMain: { width: 900, crop: "limit", quality: "auto", format: "auto" },
+  detailZoom: { width: 1400, crop: "limit", quality: "auto", format: "auto" },
+  banner: { width: 1600, crop: "limit", quality: "auto", format: "auto" },
+};
+
+/**
+ * Convenience helper to get a Cloudinary URL optimized for a specific UI role.
+ */
+export const getPresetImageUrl = (url, presetName = "productCard") => {
+  const preset = CLOUDINARY_PRESETS[presetName] || CLOUDINARY_PRESETS.productCard;
+  return buildOptimizedCloudinaryUrl(url, preset);
 };
 
 /**

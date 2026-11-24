@@ -9,6 +9,74 @@ import { getOptimizedVideoUrl, getVideoPosterUrl } from '../../config/cloudinary
 import 'swiper/css';
 import 'swiper/css/free-mode';
 
+const ReelItem = ({ post, index }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const posterUrl = getVideoPosterUrl(post.video, { width: 480 });
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.1 }}
+      onMouseEnter={() => setIsPlaying(true)}
+      onMouseLeave={() => setIsPlaying(false)}
+      onClick={() => window.open(post.url, '_blank')}
+      className="group relative aspect-[9/16] overflow-hidden cursor-pointer rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-700 bg-[#170624]"
+    >
+      {/* Video Reel or Poster Preview */}
+      {isPlaying ? (
+        <video
+          src={getOptimizedVideoUrl(post.video, { width: 480 })}
+          poster={posterUrl}
+          preload="none"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+      ) : (
+        <img
+          src={posterUrl}
+          alt={post.title || "Instagram reel"}
+          loading="lazy"
+          decoding="async"
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+      )}
+
+      {/* Dark Gradient Overlay for Readability */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#14061F]/90 via-black/20 to-[#14061F]/40 group-hover:from-[#14061F]/95 transition-all duration-500" />
+
+      {/* Top Bar Info */}
+      <div className="absolute top-4 inset-x-4 flex items-center justify-between z-10">
+        <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/20">
+          <Instagram size={13} className="text-[#E5C794]" />
+          <span className="text-[14px] font-bold text-white tracking-widest uppercase">@_velouraz_</span>
+        </div>
+        <span className="text-[14px] font-bold text-white/80 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-full">
+          REEL
+        </span>
+      </div>
+
+      {/* Bottom Information */}
+      <div className="absolute bottom-4 inset-x-4 z-10 space-y-1">
+        <span className="text-[14px] font-bold uppercase tracking-wider text-[#E5C794] block">
+          ✦ {post.tag || "Luxury Edit"}
+        </span>
+        <p className="text-xs sm:text-sm font-serif text-white font-medium line-clamp-2 leading-snug">
+          {post.title}
+        </p>
+        <div className="flex items-center gap-1.5 pt-1 text-[14px] text-white/70 group-hover:text-white transition-colors">
+          <span>Watch Reel on Instagram</span>
+          <ExternalLink size={11} />
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 const TheJournal = () => {
   const [reelPosts, setReelPosts] = useState(DEFAULT_REELS);
 
@@ -65,54 +133,7 @@ const TheJournal = () => {
           >
             {reelPosts.map((post, index) => (
               <SwiperSlide key={post.id || index}>
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => window.open(post.url, '_blank')}
-                  className="group relative aspect-[9/16] overflow-hidden cursor-pointer rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-700 bg-[#170624]"
-                >
-                  {/* Video Reel Preview */}
-                  <video
-                    src={getOptimizedVideoUrl(post.video, { width: 480 })}
-                    poster={getVideoPosterUrl(post.video, { width: 480 })}
-                    preload="none"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
-
-                  {/* Dark Gradient Overlay for Readability */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#14061F]/90 via-black/20 to-[#14061F]/40 group-hover:from-[#14061F]/95 transition-all duration-500" />
-
-                  {/* Top Bar Info */}
-                  <div className="absolute top-4 inset-x-4 flex items-center justify-between z-10">
-                    <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1 rounded-full border border-white/20">
-                      <Instagram size={13} className="text-[#E5C794]" />
-                      <span className="text-[14px] font-bold text-white tracking-widest uppercase">@_velouraz_</span>
-                    </div>
-                    <span className="text-[14px] font-bold text-white/80 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-full">
-                      REEL
-                    </span>
-                  </div>
-
-                  {/* Bottom Information */}
-                  <div className="absolute bottom-4 inset-x-4 z-10 space-y-1">
-                    <span className="text-[14px] font-bold uppercase tracking-wider text-[#E5C794] block">
-                      ✦ {post.tag || "Luxury Edit"}
-                    </span>
-                    <p className="text-xs sm:text-sm font-serif text-white font-medium line-clamp-2 leading-snug">
-                      {post.title}
-                    </p>
-                    <div className="flex items-center gap-1.5 pt-1 text-[14px] text-white/70 group-hover:text-white transition-colors">
-                      <span>Watch Reel on Instagram</span>
-                      <ExternalLink size={11} />
-                    </div>
-                  </div>
-                </motion.div>
+                <ReelItem post={post} index={index} />
               </SwiperSlide>
             ))}
           </Swiper>

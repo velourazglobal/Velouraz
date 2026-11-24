@@ -479,12 +479,25 @@ const SearchOverlayModal = ({ onClose }) => {
     };
     window.addEventListener("keydown", handleKeyDown);
 
+    // Check search catalog session cache
+    const CACHE_KEY = "vlz_search_catalog";
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        setProducts(JSON.parse(cached));
+        setLoading(false);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+      }
+    } catch {}
+
     // Fetch initial products for search lookup
     setLoading(true);
     getDocs(collection(db, "products"))
       .then((snap) => {
         if (!snap.empty) {
-          setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setProducts(list);
+          try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(list)); } catch {}
         }
       })
       .catch((err) => console.error("Search fetch error:", err))

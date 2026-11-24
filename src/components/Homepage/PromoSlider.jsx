@@ -85,7 +85,13 @@ const CardItem = ({ item }) => {
 
   useEffect(() => {
     let interval;
-    if (!videoSrc && isHovered) {
+    if (videoSrc && videoRef.current) {
+      if (isHovered) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
+      }
+    } else if (!videoSrc && isHovered) {
       // Switch immediately to 2nd image on hover when video is absent
       setCurrentImageIndex(1);
 
@@ -120,9 +126,8 @@ const CardItem = ({ item }) => {
           <video
             ref={videoRef}
             src={getOptimizedVideoUrl(videoSrc)}
-            poster={getVideoPosterUrl(videoSrc)}
+            poster={getVideoPosterUrl(videoSrc, { fallback: defaultImg })}
             preload="none"
-            autoPlay
             loop
             muted
             playsInline
