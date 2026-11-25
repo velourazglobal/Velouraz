@@ -110,7 +110,7 @@ export default async function handler(req, res) {
       const smtpUser = process.env.SMTP_USER;
       const fromAddress =
         process.env.SMTP_FROM ||
-        (smtpUser ? `"Velouraz Jewellery" <${smtpUser}>` : '"Velouraz Admin Control" <admin@velouraz.in>');
+        (smtpUser ? `"Velouraz" <${smtpUser}>` : '"Velouraz Admin Control" <admin@velouraz.in>');
 
       const mailOptions = {
         from: fromAddress,
@@ -177,7 +177,7 @@ export default async function handler(req, res) {
                     <tr>
                       <td align="center" style="border-top: 1px solid #2e2633; margin-top: 30px; padding-top: 25px;">
                         <p style="font-size: 12px; color: #6b6374; margin: 0;">
-                          © ${new Date().getFullYear()} Velouraz Jewellery. Executive Management System.
+                          © ${new Date().getFullYear()} VELOURAZ. All rights reserved.
                         </p>
                       </td>
                     </tr>
@@ -303,7 +303,7 @@ export default async function handler(req, res) {
                   <tr>
                     <td align="center" style="border-top: 1px solid #2e2633; margin-top: 30px; padding-top: 25px;">
                       <p style="font-size: 12px; color: #6b6374; margin: 0;">
-                        © ${new Date().getFullYear()} Velouraz High Jewellery. All rights reserved.
+                        © ${new Date().getFullYear()} VELOURAZ. All rights reserved.
                       </p>
                     </td>
                   </tr>
@@ -511,7 +511,7 @@ export default async function handler(req, res) {
                   <tr>
                     <td align="center" style="border-top: 1px solid #2e2633; margin-top: 30px; padding-top: 25px;">
                       <p style="font-size: 12px; color: #6b6374; margin: 0;">
-                        © ${new Date().getFullYear()} Velouraz High Jewellery. All rights reserved.
+                        © ${new Date().getFullYear()} VELOURAZ. All rights reserved.
                       </p>
                     </td>
                   </tr>
@@ -566,7 +566,23 @@ export default async function handler(req, res) {
     month: "long",
     day: "numeric",
   });
-  const totalFormatted = `₹${Number(orderData.totalAmount || orderData.total || 0).toLocaleString("en-IN")}`;
+  
+  // Calculate Subtotal, Delivery Charges, and Discount
+  const itemsTotal = (orderData.items || []).reduce(
+    (acc, item) => acc + Number(item.price || 0) * Number(item.quantity || 1),
+    0
+  );
+  const subtotal = Number(orderData.subtotal !== undefined ? orderData.subtotal : (itemsTotal || orderData.total || 0));
+  const discountAmount = Number(orderData.discountAmount || 0);
+  const totalVal = Number(orderData.totalAmount || orderData.total || (subtotal - discountAmount));
+  const shippingFee = orderData.shippingFee !== undefined
+    ? Number(orderData.shippingFee)
+    : Math.max(0, totalVal - (subtotal - discountAmount));
+
+  const subtotalFormatted = `₹${subtotal.toLocaleString("en-IN")}`;
+  const shippingFormatted = shippingFee > 0 ? `₹${shippingFee.toLocaleString("en-IN")}` : "FREE";
+  const discountFormatted = discountAmount > 0 ? `- ₹${discountAmount.toLocaleString("en-IN")}` : null;
+  const totalFormatted = `₹${totalVal.toLocaleString("en-IN")}`;
   const addressFormatted =
     orderData.shippingAddress?.fullAddress ||
     `${orderData.shippingAddress?.address || ""}, ${orderData.shippingAddress?.city || ""} - ${orderData.shippingAddress?.pincode || ""}`;
@@ -576,7 +592,7 @@ export default async function handler(req, res) {
   const customerMailOptions = {
     from: process.env.SMTP_FROM || `"Velouraz" <${smtpUser}>`,
     to: customerEmail,
-    subject: `Order Confirmation #${orderId} - Velouraz`,
+    subject: `Order Confirmation #${orderId} - VELOURAZ`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -592,7 +608,6 @@ export default async function handler(req, res) {
                 <tr>
                   <td align="center" style="padding-bottom: 20px;">
                     <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; font-weight: normal; letter-spacing: 4px; color: #d4af37;">VELOURAZ</h1>
-                    <p style="margin: 5px 0 0 0; font-size: 14px; tracking: 2px; text-transform: uppercase; color: #8a8292;">High Jewellery</p>
                   </td>
                 </tr>
                 <tr>
@@ -600,7 +615,7 @@ export default async function handler(req, res) {
                     <h2 style="font-size: 18px; color: #ffffff; margin-bottom: 8px;">Order Confirmed!</h2>
                     <p style="font-size: 14px; color: #b5adc0; line-height: 1.6; margin: 0 0 20px 0;">
                       Dear ${customerName},<br>
-                      Thank you for choosing Velouraz. Your order has been placed successfully and is currently being processed by our artisans.
+                      Thank you for choosing VELOURAZ. Your order has been placed successfully and is currently being processed.
                     </p>
 
                     <div style="background: #1e1921; padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; border-left: 3px solid #d4af37;">
@@ -623,9 +638,28 @@ export default async function handler(req, res) {
                       </tbody>
                     </table>
 
-                    <div style="text-align: right; padding-top: 14px; border-top: 1px dashed #2e2633;">
-                      <p style="margin: 0; font-size: 18px; font-weight: bold; color: #d4af37;">Total Amount: ${totalFormatted}</p>
-                    </div>
+                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 15px; border-top: 1px dashed #2e2633; padding-top: 15px;">
+                      <tr>
+                        <td style="padding: 5px 0; color: #8a8292; font-size: 14px;">Subtotal:</td>
+                        <td style="padding: 5px 0; color: #ffffff; font-size: 14px; text-align: right;">${subtotalFormatted}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 5px 0; color: #8a8292; font-size: 14px;">Delivery Charges:</td>
+                        <td style="padding: 5px 0; color: ${shippingFee === 0 ? "#22c55e" : "#ffffff"}; font-size: 14px; text-align: right; font-weight: ${shippingFee === 0 ? "bold" : "normal"};">${shippingFormatted}</td>
+                      </tr>
+                      ${
+                        discountFormatted
+                          ? `<tr>
+                              <td style="padding: 5px 0; color: #22c55e; font-size: 14px;">Discount Applied:</td>
+                              <td style="padding: 5px 0; color: #22c55e; font-size: 14px; text-align: right; font-weight: bold;">${discountFormatted}</td>
+                            </tr>`
+                          : ""
+                      }
+                      <tr>
+                        <td style="padding: 12px 0 0 0; color: #ffffff; font-size: 16px; font-weight: bold; border-top: 1px solid #2e2633;">Total Amount Paid:</td>
+                        <td style="padding: 12px 0 0 0; color: #d4af37; font-size: 18px; font-weight: bold; text-align: right; border-top: 1px solid #2e2633;">${totalFormatted}</td>
+                      </tr>
+                    </table>
 
                     <div style="margin-top: 30px; padding: 20px; background: #1e1921; border-radius: 8px;">
                       <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #ffffff;">Shipping Address</h4>
@@ -639,7 +673,7 @@ export default async function handler(req, res) {
                       Need assistance? Reply to this email or contact support at ${adminEmail}.
                     </p>
                     <p style="font-size: 14px; color: #6b6374; margin-top: 14px;">
-                      © ${new Date().getFullYear()} Velouraz Jewellery. All rights reserved.
+                      © ${new Date().getFullYear()} VELOURAZ. All rights reserved.
                     </p>
                   </td>
                 </tr>
@@ -658,11 +692,14 @@ export default async function handler(req, res) {
     subject: `🚨 NEW ORDER RECEIVED: #${orderId} (${totalFormatted})`,
     html: `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #111;">
-        <h2 style="color: #b8860b;">New Order Received - Velouraz</h2>
+        <h2 style="color: #b8860b;">New Order Received - VELOURAZ</h2>
         <p><strong>Order ID:</strong> #${orderId}</p>
         <p><strong>Customer Name:</strong> ${customerName}</p>
         <p><strong>Customer Email:</strong> ${customerEmail}</p>
-        <p><strong>Total Amount:</strong> ${totalFormatted}</p>
+        <p><strong>Subtotal:</strong> ${subtotalFormatted}</p>
+        <p><strong>Delivery Charges:</strong> ${shippingFormatted}</p>
+        ${discountFormatted ? `<p><strong>Discount:</strong> ${discountFormatted}</p>` : ""}
+        <p><strong>Total Amount:</strong> <strong style="color: #b8860b;">${totalFormatted}</strong></p>
         <p><strong>Payment Method:</strong> ${paymentMethod}</p>
         <p><strong>Shipping Address:</strong> ${addressFormatted}</p>
         <hr />

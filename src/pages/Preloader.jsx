@@ -105,7 +105,7 @@ const PremiumPreloader = ({ onComplete }) => {
               transition={{ delay: 0.25, duration: 0.7 }}
               className="text-[14px] sm:text-[14px] font-semibold uppercase tracking-[0.35em] text-[#2A2623]/80 mb-7 pl-[0.35em]"
             >
-              Haute Joaillerie · Indore
+              VELOURAZ
             </motion.p>
 
             {/* Micro Hairline Progress Container */}

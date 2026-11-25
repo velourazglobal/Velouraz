@@ -76,7 +76,7 @@ const Gallery = () => {
                                     srcSet={getImageSrcSet(photo.url, [400, 600, 800, 1000])}
                                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                                     onError={handleImageError}
-                                    alt={photo.caption || photo.title || `Velouraz jewellery - ${photo.id}`}
+                                    alt={photo.caption || photo.title || `VELOURAZ - ${photo.id}`}
                                     className="w-full h-auto object-cover transform transition-transform duration-700 ease-out group-hover:scale-105"
                                     loading="lazy"
                                 />

@@ -6,7 +6,7 @@ Use these pre-designed luxury HTML templates in your EmailJS dashboard (https://
 
 ## Template 1: Customer Order Confirmation (User Template)
 
-**Subject Line:** `Order Confirmed - {{order_id}} | Velouraz Haute Joaillerie`
+**Subject Line:** `Order Confirmed - {{order_id}} | VELOURAZ`
 
 **HTML Template Content:**
 ```html
@@ -33,7 +33,7 @@ Use these pre-designed luxury HTML templates in your EmailJS dashboard (https://
   <div class="container">
     <div class="header">
       <div class="brand">Velouraz</div>
-      <div class="subbrand">Haute Joaillerie</div>
+      <div class="subbrand">VELOURAZ</div>
       <h1 class="title">Thank You For Your Order</h1>
     </div>
 
@@ -60,7 +60,7 @@ Use these pre-designed luxury HTML templates in your EmailJS dashboard (https://
     </div>
 
     <div class="footer">
-      Velouraz Haute Joaillerie — Handcrafted Masterpieces.<br>
+      VELOURAZ — Handcrafted Fine Jewellery.<br>
       If you have questions, contact our concierge at support@velouraz.com
     </div>
   </div>

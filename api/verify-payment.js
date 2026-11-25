@@ -37,7 +37,23 @@ async function dispatchOrderConfirmationEmails(order) {
 
     const orderId = order.orderNumber || order.id || `VEL-${Date.now()}`;
     const customerName = order.customerName || order.shippingAddress?.name || "Valued Customer";
-    const totalFormatted = `₹${Number(order.totalAmount || order.total || 0).toLocaleString("en-IN")}`;
+    
+    // Calculate financial breakdown
+    const itemsTotal = (order.items || []).reduce(
+      (acc, item) => acc + Number(item.price || 0) * Number(item.quantity || 1),
+      0
+    );
+    const subtotal = Number(order.subtotal !== undefined ? order.subtotal : (itemsTotal || order.total || 0));
+    const discountAmount = Number(order.discountAmount || 0);
+    const totalVal = Number(order.totalAmount || order.total || (subtotal - discountAmount));
+    const shippingFee = order.shippingFee !== undefined
+      ? Number(order.shippingFee)
+      : Math.max(0, totalVal - (subtotal - discountAmount));
+
+    const subtotalFormatted = `₹${subtotal.toLocaleString("en-IN")}`;
+    const shippingFormatted = shippingFee > 0 ? `₹${shippingFee.toLocaleString("en-IN")}` : "FREE";
+    const discountFormatted = discountAmount > 0 ? `- ₹${discountAmount.toLocaleString("en-IN")}` : null;
+    const totalFormatted = `₹${totalVal.toLocaleString("en-IN")}`;
     const addressFormatted =
       order.shippingAddress?.fullAddress ||
       `${order.shippingAddress?.address || ""}, ${order.shippingAddress?.city || ""} - ${order.shippingAddress?.pincode || ""}`;
@@ -72,14 +88,13 @@ async function dispatchOrderConfirmationEmails(order) {
                 <tr>
                   <td align="center" style="padding-bottom: 20px;">
                     <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; color: #d4af37; letter-spacing: 4px;">VELOURAZ</h1>
-                    <p style="margin: 5px 0 0 0; font-size: 14px; text-transform: uppercase; color: #8a8292;">Haute Joaillerie</p>
                   </td>
                 </tr>
                 <tr>
                   <td style="border-top: 1px solid #2e2633; padding-top: 25px;">
                     <h2 style="margin: 0 0 10px 0; color: #ffffff; font-size: 20px;">Order Confirmed & Payment Received</h2>
                     <p style="margin: 0 0 20px 0; color: #b5adc0; font-size: 14px; line-height: 1.6;">
-                      Dear ${customerName}, thank you for your acquisition. We have successfully received your payment via Razorpay (ID: <strong>${order.razorpayPaymentId || "Verified"}</strong>). Your order is being prepared by our ateliers.
+                      Dear ${customerName}, thank you for your order. We have successfully received your payment via Razorpay (ID: <strong>${order.razorpayPaymentId || "Verified"}</strong>). Your order is being prepared by our team.
                     </p>
                   </td>
                 </tr>
@@ -122,10 +137,29 @@ async function dispatchOrderConfirmationEmails(order) {
                   </td>
                 </tr>
                 <tr>
-                  <td style="border-top: 1px solid #2e2633; padding-top: 15px; text-align: right;">
-                    <p style="margin: 0; font-size: 16px; color: #ffffff;">
-                      Total Paid: <strong style="color: #d4af37; font-size: 20px;">${totalFormatted}</strong>
-                    </p>
+                  <td style="border-top: 1px solid #2e2633; padding-top: 15px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding: 4px 0; color: #8a8292; font-size: 14px;">Subtotal:</td>
+                        <td style="padding: 4px 0; color: #ffffff; font-size: 14px; text-align: right;">${subtotalFormatted}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0; color: #8a8292; font-size: 14px;">Delivery Charges:</td>
+                        <td style="padding: 4px 0; color: ${shippingFee === 0 ? "#22c55e" : "#ffffff"}; font-size: 14px; text-align: right; font-weight: ${shippingFee === 0 ? "bold" : "normal"};">${shippingFormatted}</td>
+                      </tr>
+                      ${
+                        discountFormatted
+                          ? `<tr>
+                              <td style="padding: 4px 0; color: #22c55e; font-size: 14px;">Discount Applied:</td>
+                              <td style="padding: 4px 0; color: #22c55e; font-size: 14px; text-align: right; font-weight: bold;">${discountFormatted}</td>
+                            </tr>`
+                          : ""
+                      }
+                      <tr>
+                        <td style="padding: 10px 0 0 0; color: #ffffff; font-size: 16px; font-weight: bold; border-top: 1px solid #2e2633;">Total Paid:</td>
+                        <td style="padding: 10px 0 0 0; color: #d4af37; font-size: 18px; font-weight: bold; text-align: right; border-top: 1px solid #2e2633;">${totalFormatted}</td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
                 <tr>
@@ -134,7 +168,7 @@ async function dispatchOrderConfirmationEmails(order) {
                       You can track your order status anytime on our website under My Orders.
                     </p>
                     <p style="font-size: 12px; color: #6b6374; margin-top: 10px;">
-                      © ${new Date().getFullYear()} Velouraz High Jewellery. All rights reserved.
+                      © ${new Date().getFullYear()} VELOURAZ. All rights reserved.
                     </p>
                   </td>
                 </tr>
@@ -148,13 +182,13 @@ async function dispatchOrderConfirmationEmails(order) {
 
     const fromAddress =
       process.env.SMTP_FROM ||
-      (smtpUser ? `"Velouraz Jewellery" <${smtpUser}>` : '"Velouraz" <orders@velouraz.in>');
+      (smtpUser ? `"VELOURAZ" <${smtpUser}>` : '"VELOURAZ" <orders@velouraz.in>');
 
     await Promise.allSettled([
       sendMailWithFallback({
         from: fromAddress,
         to: customerEmail,
-        subject: `Payment Confirmed — Order #${orderId} | Velouraz`,
+        subject: `Payment Confirmed — Order #${orderId} | VELOURAZ`,
         html: emailHtml,
       }),
       sendMailWithFallback({
@@ -163,11 +197,14 @@ async function dispatchOrderConfirmationEmails(order) {
         subject: `🚨 [PAID ORDER] #${orderId} - ${totalFormatted} (${customerName})`,
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; color: #111;">
-            <h2 style="color: #b8860b;">New Paid Order Confirmed - Velouraz</h2>
+            <h2 style="color: #b8860b;">New Paid Order Confirmed - VELOURAZ</h2>
             <p><strong>Order ID:</strong> #${orderId}</p>
             <p><strong>Customer:</strong> ${customerName} (${customerEmail})</p>
             <p><strong>Razorpay Payment ID:</strong> ${order.razorpayPaymentId}</p>
-            <p><strong>Amount Paid:</strong> ${totalFormatted}</p>
+            <p><strong>Subtotal:</strong> ${subtotalFormatted}</p>
+            <p><strong>Delivery Charges:</strong> ${shippingFormatted}</p>
+            ${discountFormatted ? `<p><strong>Discount:</strong> ${discountFormatted}</p>` : ""}
+            <p><strong>Amount Paid:</strong> <strong style="color: #b8860b;">${totalFormatted}</strong></p>
             <p><strong>Delivery Address:</strong> ${addressFormatted}</p>
             <hr />
             <h3>Items:</h3>

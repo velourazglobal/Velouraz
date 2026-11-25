@@ -29,7 +29,7 @@ const defaultReviews = [
     location: "New Delhi, India",
     title: "Verified Collector",
     date: "02 jun 2026",
-    quote: "Acquired the Solitaire Ring for our 10th anniversary. Exceptional brilliance and unmatched anti-tarnish durability.",
+    quote: "Ordered the Solitaire Ring for our 10th anniversary. Exceptional brilliance and unmatched anti-tarnish durability.",
     rating: 5
   },
   {
@@ -38,7 +38,7 @@ const defaultReviews = [
     location: "London, UK",
     title: "Verified Buyer",
     date: "28 april 2026",
-    quote: "Velouraz Jewellery pieces have become my signature style for celebrations. The weight, luster, and finish are extraordinary.",
+    quote: "Velouraz pieces have become my signature style for celebrations. The weight, luster, and finish are extraordinary.",
     rating: 5
   },
   {

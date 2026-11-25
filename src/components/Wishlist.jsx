@@ -187,7 +187,7 @@ const Wishlist = () => {
               </span>
             </h1>
             <p className="text-xs sm:text-sm text-[#7B6D63] font-serif leading-relaxed max-w-xl">
-              Your personal gallery of handcrafted masterpieces saved for acquisition.
+              Your personal gallery of handcrafted pieces saved for later.
             </p>
           </div>
 
@@ -341,7 +341,7 @@ const Wishlist = () => {
 
                         {/* Brand Tag */}
                         <span className="text-[14px] sm:text-[14px] font-sans font-semibold uppercase tracking-[0.2em] text-[#C8A46A] block truncate">
-                          {item.brand || "Velouraz Jewellery"}
+                          {item.brand || "VELOURAZ"}
                         </span>
 
                         {/* Product Title */}

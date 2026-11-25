@@ -120,7 +120,7 @@ const OrderTracking = () => {
 
       <Breadcrumb
         title="Live Shipment Tracking"
-        subtitle="Real-time Shiprocket logistics tracking for your handcrafted Velouraz acquisitions."
+        subtitle="Real-time Shiprocket logistics tracking for your handcrafted Velouraz orders."
         bgImage="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&q=80&w=1600"
         links={breadcrumbLinks}
       />
@@ -334,10 +334,39 @@ const OrderTracking = () => {
                         </div>
                       ))}
                     </div>
-                    <div className="flex justify-between items-center text-xs font-bold font-sans pt-1 border-t border-[#E5D7C5]">
-                      <span>Total Paid:</span>
-                      <span className="text-[#14111E]">₹{Number(orderData.totalAmount || orderData.total || 0).toLocaleString()}</span>
-                    </div>
+                    {(() => {
+                      const explicitShipping = orderData.shippingFee !== undefined && orderData.shippingFee !== null ? Number(orderData.shippingFee) : null;
+                      const itemsSub = (orderData.items || []).reduce((acc, i) => acc + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
+                      const sub = Number(orderData.subtotal || itemsSub || orderData.totalAmount || 0);
+                      const disc = Number(orderData.discountAmount || 0);
+                      const tot = Number(orderData.totalAmount || orderData.total || 0);
+                      const ship = explicitShipping !== null ? explicitShipping : Math.max(0, tot - Math.max(0, sub - disc));
+
+                      return (
+                        <div className="space-y-1 pt-1 border-t border-[#E5D7C5] text-xs font-sans">
+                          <div className="flex justify-between items-center text-[#786C60]">
+                            <span>Subtotal:</span>
+                            <span className="font-semibold text-[#14111E]">₹{sub.toLocaleString("en-IN")}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-[#786C60]">
+                            <span>Delivery Charges:</span>
+                            <span className={ship > 0 ? "font-semibold text-[#14111E]" : "font-bold text-emerald-600"}>
+                              {ship > 0 ? `₹${ship.toLocaleString("en-IN")}` : "FREE"}
+                            </span>
+                          </div>
+                          {disc > 0 && (
+                            <div className="flex justify-between items-center text-emerald-600 font-semibold">
+                              <span>Discount:</span>
+                              <span>- ₹{disc.toLocaleString("en-IN")}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center text-xs font-bold font-sans pt-1 border-t border-[#E5D7C5]">
+                            <span>Total Paid:</span>
+                            <span className="text-[#14111E]">₹{tot.toLocaleString("en-IN")}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

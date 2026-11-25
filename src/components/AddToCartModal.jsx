@@ -98,7 +98,7 @@ const AddToCartModal = ({ isOpen, onClose, product }) => {
 
             <div className="flex-1 min-w-0 space-y-1.5">
               <span className="text-sm font-sans font-bold uppercase tracking-[0.2em] text-[#C8A46A] block truncate">
-                {product.brand || product.category || "Velouraz Jewellery"}
+                {product.brand || product.category || "VELOURAZ"}
               </span>
 
               <h4 className="font-serif text-base sm:text-lg text-[#2e0e43] font-normal leading-snug line-clamp-2">

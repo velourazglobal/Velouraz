@@ -413,7 +413,7 @@ const Orders = () => {
 
       <Breadcrumb
         title="Orders & Live Tracking"
-        subtitle="Manage your acquisitions, download tax invoices, and track Shiprocket deliveries in real time."
+        subtitle="Manage your orders, download tax invoices, and track Shiprocket deliveries in real time."
         bgImage="https://images.unsplash.com/photo-1544027993-37dbfe43552e?auto=format&fit=crop&q=80&w=1600"
         links={breadcrumbLinks}
       />
@@ -443,7 +443,7 @@ const Orders = () => {
                 Velouraz Concierge Portal
               </span>
               <h1 className="font-serif text-3xl font-normal text-[#14111E]">
-                {activeTabMode === "history" ? "Acquisition History" : "Shiprocket Live Shipment Tracker"}
+                {activeTabMode === "history" ? "Order History" : "Shiprocket Live Shipment Tracker"}
               </h1>
             </div>
 
@@ -961,9 +961,9 @@ const Orders = () => {
             ) : (
               <div className="bg-white rounded-3xl p-16 border border-[#E5D7C5] shadow-xs text-center space-y-4">
               <ShoppingBag size={48} className="mx-auto text-[#C8A46A]/60" />
-              <h3 className="font-serif text-2xl text-[#14111E] font-normal">No acquisitions found</h3>
+              <h3 className="font-serif text-2xl text-[#14111E] font-normal">No orders found</h3>
               <p className="text-xs text-[#786C60] font-serif italic max-w-sm mx-auto">
-                {searchQuery ? "No orders match your search query." : "You have not placed any orders with House of Velouraz yet."}
+                {searchQuery ? "No orders match your search query." : "You have not placed any orders with VELOURAZ yet."}
               </p>
               <Link
                 to="/shop"
@@ -1165,7 +1165,7 @@ const Orders = () => {
             >
               <div className="flex justify-between items-center border-b border-[#E5D7C5] pb-4">
                 <div>
-                  <span className="text-[14px] font-bold uppercase tracking-wider text-[#C8A46A] font-sans">Velouraz Acquisition Receipt</span>
+                  <span className="text-[14px] font-bold uppercase tracking-wider text-[#C8A46A] font-sans">Order Receipt</span>
                   <h3 className="font-serif text-xl font-bold font-mono text-[#14111E]">#{selectedOrder.id}</h3>
                 </div>
                 <button onClick={() => setShowDetailModal(false)} className="p-2 text-gray-400 hover:text-black">
@@ -1198,18 +1198,49 @@ const Orders = () => {
                 <p className="pt-1 text-[14px]">Payment Method: <span className="font-bold text-[#14111E] uppercase">{selectedOrder.paymentMethod} ({selectedOrder.paymentStatus})</span></p>
               </div>
 
-              <div className="flex justify-between items-center pt-2 border-t border-[#E5D7C5]">
-                <button
-                  onClick={() => generateInvoicePDF(selectedOrder)}
-                  className="px-4 py-2 bg-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#251D33] transition-all flex items-center gap-1.5 font-sans"
-                >
-                  <Download size={14} className="text-[#C8A46A]" /> Download Tax Invoice
-                </button>
-                <div className="text-right font-sans">
-                  <span className="text-[14px] font-bold uppercase tracking-wider text-[#786C60]">Grand Total</span>
-                  <p className="text-lg font-serif font-bold text-[#14111E]">₹{Number(selectedOrder.totalAmount || selectedOrder.total || 0).toLocaleString()}</p>
-                </div>
-              </div>
+              {(() => {
+                const explicitShipping = selectedOrder.shippingFee !== undefined && selectedOrder.shippingFee !== null ? Number(selectedOrder.shippingFee) : null;
+                const itemsSubtotal = (selectedOrder.items || []).reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+                const modalSubtotal = Number(selectedOrder.subtotal || itemsSubtotal || selectedOrder.total || 0);
+                const modalTotal = Number(selectedOrder.totalAmount || selectedOrder.total || 0);
+                const modalDiscount = Number(selectedOrder.discountAmount || 0);
+                const modalShipping = explicitShipping !== null
+                  ? explicitShipping
+                  : Math.max(0, modalTotal - Math.max(0, modalSubtotal - modalDiscount));
+
+                return (
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-3 border-t border-[#E5D7C5]">
+                    <button
+                      onClick={() => generateInvoicePDF(selectedOrder)}
+                      className="px-4 py-2.5 bg-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-[#251D33] transition-all flex items-center gap-1.5 font-sans"
+                    >
+                      <Download size={14} className="text-[#C8A46A]" /> Download Tax Invoice
+                    </button>
+                    <div className="w-full sm:w-64 space-y-1.5 text-right font-sans text-xs">
+                      <div className="flex justify-between text-[#786C60]">
+                        <span>Subtotal:</span>
+                        <span className="font-bold text-[#14111E]">₹{modalSubtotal.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="flex justify-between text-[#786C60]">
+                        <span>Delivery Charges:</span>
+                        <span className={modalShipping > 0 ? "font-bold text-[#14111E]" : "font-bold text-emerald-600"}>
+                          {modalShipping > 0 ? `₹${modalShipping.toLocaleString("en-IN")}` : "FREE"}
+                        </span>
+                      </div>
+                      {modalDiscount > 0 && (
+                        <div className="flex justify-between text-emerald-600 font-bold">
+                          <span>Discount:</span>
+                          <span>- ₹{modalDiscount.toLocaleString("en-IN")}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-base font-serif font-bold text-[#14111E] border-t border-[#E5D7C5] pt-1.5 mt-1">
+                        <span>Grand Total:</span>
+                        <span>₹{modalTotal.toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </motion.div>
           </div>
         )}
@@ -1374,7 +1405,7 @@ const Orders = () => {
                     <textarea
                       required
                       rows={4}
-                      placeholder="Share details about the quality, anti-tarnish finish, weight, and packaging of your acquisition..."
+                      placeholder="Share details about the quality, anti-tarnish finish, weight, and packaging of your order..."
                       value={reviewForm.quote}
                       onChange={(e) => setReviewForm({ ...reviewForm, quote: e.target.value })}
                       className="w-full bg-[#F6F2EC] border border-[#E5D7C5] rounded-xl p-3.5 text-xs outline-none focus:border-[#14111E] text-[#14111E] font-sans resize-none"

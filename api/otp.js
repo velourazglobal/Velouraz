@@ -205,7 +205,7 @@ export default async function handler(req, res) {
     });
 
     const smtpUser = process.env.SMTP_USER;
-    const fromAddress = process.env.SMTP_FROM || (smtpUser ? `"Velouraz Jewellery" <${smtpUser}>` : '');
+    const fromAddress = process.env.SMTP_FROM || (smtpUser ? `"Velouraz" <${smtpUser}>` : '');
 
     const mailOptions = {
       from: fromAddress,
@@ -226,7 +226,7 @@ export default async function handler(req, res) {
                   <tr>
                     <td align="center" style="padding-bottom: 20px;">
                       <h1 style="margin: 0; font-family: Georgia, serif; font-size: 26px; font-weight: normal; letter-spacing: 4px; color: #d4af37;">VELOURAZ</h1>
-                      <p style="margin: 5px 0 0 0; font-size: 14px; tracking: 2px; text-transform: uppercase; color: #8a8292;">High Jewellery</p>
+                      
                     </td>
                   </tr>
                   <tr>
@@ -249,7 +249,7 @@ export default async function handler(req, res) {
                         If you did not request this code, please ignore this email.
                       </p>
                       <p style="font-size: 14px; color: #6b6374; margin-top: 8px;">
-                        © ${new Date().getFullYear()} Velouraz Jewellery. All rights reserved.
+                        © ${new Date().getFullYear()} VELOURAZ. All rights reserved.
                       </p>
                     </td>
                   </tr>

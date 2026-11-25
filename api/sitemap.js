@@ -205,7 +205,7 @@ export default async function handler(req, res) {
             // Build descriptive title for image alt
             const imageTitle = product.name
                 ? `${product.name} - ${product.category || 'Jewellery'} by Velouraz`
-                : 'Velouraz Jewellery';
+                : 'VELOURAZ';
 
             // Priority based on stock and category
             const inStock = Number(product.stock || 0) > 0;

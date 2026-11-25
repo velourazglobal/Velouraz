@@ -98,7 +98,8 @@ const Cart = () => {
     );
   }
 
-  const total = subtotal;
+  const shippingFee = subtotal >= 1999 || subtotal === 0 ? 0 : 99;
+  const total = subtotal + shippingFee;
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] font-sans text-[#2A2623]">
@@ -211,7 +212,7 @@ const Cart = () => {
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <span className="text-[14px] sm:text-[14px] font-sans font-semibold uppercase tracking-[0.2em] text-[#C8A46A] block">
-                                  Velouraz Jewellery
+                                  VELOURAZ
                                 </span>
                                 <Link
                                   to={`/product/${item.id}`}
@@ -395,6 +396,17 @@ const Cart = () => {
                     )}
 
                     {/* Delivery Charges */}
+                    <div className="flex justify-between items-center text-[#7B6D63]">
+                      <span>Delivery Charges</span>
+                      <span className={shippingFee === 0 ? "text-emerald-700 font-semibold text-xs" : "font-normal text-sm sm:text-base text-[#2A2623]"}>
+                        {shippingFee === 0 ? "FREE" : `₹${shippingFee}`}
+                      </span>
+                    </div>
+                    {subtotal > 0 && subtotal < 1999 && (
+                      <p className="text-[12px] text-amber-700 bg-amber-50 px-2 py-1 rounded-md border border-amber-200/50">
+                        Add ₹{(1999 - subtotal).toLocaleString()} more to unlock FREE Delivery!
+                      </p>
+                    )}
 
 
                     {/* GST Included */}

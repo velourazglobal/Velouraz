@@ -98,11 +98,18 @@ const OrderSuccess = () => {
     createdAt
   } = order;
 
+  const explicitShipping = shippingFee !== undefined && shippingFee !== null ? Number(shippingFee) : null;
+  const itemsSub = items.reduce((acc, i) => acc + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
+  const resolvedSubtotal = Number(subtotal || itemsSub || total || 0);
+  const resolvedDiscount = Number(discountAmount || 0);
+  const resolvedTotal = Number(total || 0);
+  const resolvedShippingFee = explicitShipping !== null ? explicitShipping : Math.max(0, resolvedTotal - Math.max(0, resolvedSubtotal - resolvedDiscount));
+
   return (
     <div className="min-h-screen bg-[#FDFBF7] font-sans text-[#2A2623]">
       <Breadcrumb
         title="Order Confirmation"
-        subtitle="Thank you for choosing Velouraz Jewellery"
+        subtitle="Thank you for choosing VELOURAZ"
         bgImage="https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=1600"
         links={[
           { name: "Home", href: "/" },
@@ -187,18 +194,18 @@ const OrderSuccess = () => {
               <div className="space-y-2.5 text-xs font-sans text-[#7B6D63]">
                 <div className="flex justify-between">
                   <span>Subtotal</span>
-                  <span className="font-normal text-[#2A2623]">₹{Number(subtotal || 0).toLocaleString()}</span>
+                  <span className="font-normal text-[#2A2623]">₹{resolvedSubtotal.toLocaleString("en-IN")}</span>
                 </div>
-                {discountAmount > 0 && (
+                {resolvedDiscount > 0 && (
                   <div className="flex justify-between text-emerald-700">
                     <span>Discount</span>
-                    <span className="font-normal">−₹{Number(discountAmount).toLocaleString()}</span>
+                    <span className="font-normal">−₹{resolvedDiscount.toLocaleString("en-IN")}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span>Shipping</span>
-                  <span className="font-normal text-[#2A2623]">
-                    {shippingFee === 0 ? "Free" : `₹${shippingFee}`}
+                  <span className={resolvedShippingFee === 0 ? "font-normal text-emerald-700" : "font-normal text-[#2A2623]"}>
+                    {resolvedShippingFee === 0 ? "Free" : `₹${resolvedShippingFee.toLocaleString("en-IN")}`}
                   </span>
                 </div>
 
@@ -206,7 +213,7 @@ const OrderSuccess = () => {
                   <span className="font-medium text-sm text-[#2e0e43]">Total Paid</span>
                   {/* Total price font normal as requested */}
                   <span className="text-xl font-normal text-[#2e0e43] tracking-tight">
-                    ₹{Number(total || 0).toLocaleString()}
+                    ₹{resolvedTotal.toLocaleString("en-IN")}
                   </span>
                 </div>
               </div>

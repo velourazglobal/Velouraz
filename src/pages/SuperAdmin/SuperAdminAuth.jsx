@@ -160,13 +160,13 @@ const SuperAdminAuth = ({ onAuthSuccess }) => {
           
           <div className="px-8 py-4 bg-slate-950 border-t border-slate-800 text-center">
             <p className="text-[16px] text-slate-500">
-              Restricted Executive Access • House of Velouraz
+              Restricted Executive Access • VELOURAZ
             </p>
           </div>
         </div>
         
         <div className="mt-8 text-center text-base text-slate-500">
-          <p>&copy; {new Date().getFullYear()} House of Velouraz. Executive Control Portal.</p>
+          <p>&copy; {new Date().getFullYear()} VELOURAZ. Executive Control Portal.</p>
         </div>
       </div>
     </div>

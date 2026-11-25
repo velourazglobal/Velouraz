@@ -29,12 +29,13 @@ const Signup = () => {
   const [showOtpModal, setShowOtpModal] = useState(false);
 
   const handleSuccessfulAuth = () => {
-    const from = location.state?.from || "/";
+    const from = location.state?.from;
     const buyNowItem = location.state?.buyNowItem;
+    const target = (from && from !== "/" && from !== "/login" && from !== "/signup") ? from : "/account";
     if (buyNowItem) {
-      navigate(from, { state: { buyNowItem } });
+      navigate(target, { state: { buyNowItem } });
     } else {
-      navigate(from);
+      navigate(target);
     }
   };
 
@@ -174,7 +175,7 @@ const Signup = () => {
               Sign <span className="italic" style={{ color: CRIMSON }}>Up</span>
             </h1>
             <p className="text-sm text-[#7B6D63]" style={{ fontFamily: SERIF }}>
-              Become a member of the house of Velouraz.
+              Become a member of VELOURAZ.
             </p>
           </div>
 

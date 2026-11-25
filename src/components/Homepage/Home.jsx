@@ -85,7 +85,7 @@ function Home() {
             "name": "What types of jewellery can I buy from the Velouraz online shop?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "We offer a wide variety of haute joaillerie including statement Earrings, Rings, Necklaces, Bracelets, Bangles, and exclusive Bridal Wear. Each piece is designed for the modern woman who seeks luxury that is felt rather than flaunted."
+              "text": "We offer a wide variety of fine jewellery including statement Earrings, Rings, Necklaces, Bracelets, Bangles, and exclusive Bridal Wear. Each piece is designed for the modern woman who seeks luxury that is felt rather than flaunted."
             }
           },
           {

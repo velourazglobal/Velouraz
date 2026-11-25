@@ -62,8 +62,8 @@ const RazorpayCheckoutButton = ({
         key: keyId,
         amount: order.amount,
         currency: order.currency || "INR",
-        name: "Velouraz Jewellery",
-        description: "Haute Joaillerie Order Payment",
+        name: "VELOURAZ",
+        description: "Order Payment",
         image: "/img/logo.png",
         order_id: order.order_id,
         prefill: {

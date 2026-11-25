@@ -100,7 +100,7 @@ const Footer = () => {
               <Link to="/" className="inline-block group">
                 <img
                   src="/img/logo.png"
-                  alt="Velouraz Jewellery"
+                  alt="VELOURAZ"
                   className="h-14 lg:h-16 object-contain group-hover:opacity-85 transition-opacity"
                 />
               </Link>
@@ -220,7 +220,7 @@ const Footer = () => {
 
             <div className="space-y-1">
               <p className="text-sm sm:text-base text-[#7B6D63] font-sans">
-                © {currentYear} Velouraz Jewellery. All Rights Reserved.
+                © {currentYear} VELOURAZ. All Rights Reserved.
               </p>
               <p className="text-sm sm:text-base text-[#7B6D63] font-sans">
                 Design by <a href="https://letskillify.com" target="_blank" rel="noopener noreferrer" className="font-bold text-[#B89355] hover:underline">Letskillify</a>

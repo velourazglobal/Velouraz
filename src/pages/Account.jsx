@@ -779,7 +779,7 @@ const Account = () => {
                 >
                   <div className="border-b border-[#D8CBBE]/30 pb-4">
                     <h3 className="font-serif text-xl font-bold text-[#2A2623]">Invoices & Tax Receipts</h3>
-                    <p className="text-base text-[#7B6D63]">Official tax invoices for your jewelry acquisitions</p>
+                    <p className="text-base text-[#7B6D63]">Official tax invoices for your orders</p>
                   </div>
 
                   {orders.length > 0 ? (
@@ -1059,8 +1059,8 @@ const Account = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => window.print()} className="p-2 text-base font-bold bg-[#2e0e43] text-white rounded-lg flex items-center gap-1">
-                    <Printer size={14} /> Print
+                  <button onClick={() => generateInvoicePDF(invoiceOrder)} className="p-2 text-base font-bold bg-[#2e0e43] text-white rounded-lg flex items-center gap-1">
+                    <Printer size={14} /> Print / Download
                   </button>
                   <button onClick={() => setShowInvoiceModal(false)} className="p-2 text-gray-400 hover:text-black">
                     <X size={20} />
@@ -1080,7 +1080,7 @@ const Account = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-[16px] uppercase font-bold text-[#7B6D63]">Merchant</p>
-                    <p className="font-bold text-[#2e0e43]">House of Velouraz</p>
+                    <p className="font-bold text-[#2e0e43]">VELOURAZ</p>
                     <p>GSTIN: 07AAAAA0000A1Z5</p>
                     <p>Date: {new Date(invoiceOrder.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString("en-IN")}</p>
                     <p>Payment ID: {invoiceOrder.paymentId || "N/A"}</p>
@@ -1108,20 +1108,45 @@ const Account = () => {
                   </tbody>
                 </table>
 
-                <div className="border-t border-gray-200 pt-3 space-y-1 text-right text-base">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span className="font-semibold">₹{Number(invoiceOrder.subtotal || invoiceOrder.total).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>GST (3% Jewellery GST Included):</span>
-                    <span className="font-semibold">Inclusive</span>
-                  </div>
-                  <div className="flex justify-between text-sm font-bold text-[#2e0e43] pt-2 border-t">
-                    <span>Total Amount Paid:</span>
-                    <span>₹{Number(invoiceOrder.total || 0).toLocaleString()}</span>
-                  </div>
-                </div>
+                {(() => {
+                  const explicitShipping = invoiceOrder.shippingFee !== undefined && invoiceOrder.shippingFee !== null ? Number(invoiceOrder.shippingFee) : null;
+                  const itemsSubtotal = (invoiceOrder.items || []).reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+                  const orderSubtotal = Number(invoiceOrder.subtotal || itemsSubtotal || invoiceOrder.total || 0);
+                  const orderTotal = Number(invoiceOrder.totalAmount || invoiceOrder.total || invoiceOrder.amount || 0);
+                  const orderDiscount = Number(invoiceOrder.discountAmount || 0);
+                  const orderShipping = explicitShipping !== null
+                    ? explicitShipping
+                    : Math.max(0, orderTotal - Math.max(0, orderSubtotal - orderDiscount));
+
+                  return (
+                    <div className="border-t border-gray-200 pt-3 space-y-1.5 text-right text-sm">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Subtotal:</span>
+                        <span className="font-semibold text-gray-900">₹{orderSubtotal.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-600">
+                        <span>Delivery Charges:</span>
+                        <span className={orderShipping > 0 ? "font-semibold text-gray-900" : "font-bold text-emerald-600"}>
+                          {orderShipping > 0 ? `₹${orderShipping.toLocaleString("en-IN")}` : "FREE"}
+                        </span>
+                      </div>
+                      {orderDiscount > 0 && (
+                        <div className="flex justify-between text-emerald-600 font-semibold">
+                          <span>Discount Applied:</span>
+                          <span>- ₹{orderDiscount.toLocaleString("en-IN")}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-gray-500 text-xs">
+                        <span>GST (3% Jewellery GST Included):</span>
+                        <span className="font-semibold">Inclusive</span>
+                      </div>
+                      <div className="flex justify-between text-base font-bold text-[#2e0e43] pt-2 border-t border-gray-200">
+                        <span>Total Amount Paid:</span>
+                        <span>₹{orderTotal.toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </motion.div>
           </div>

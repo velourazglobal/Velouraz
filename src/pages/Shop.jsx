@@ -344,13 +344,13 @@ const Shop = () => {
   const seoCategory = selectedCategory !== 'All' ? selectedCategory : null;
   const seoCountry = selectedCountry !== 'All' ? selectedCountry : null;
   const seoTitle = seoCategory
-    ? `Shop ${seoCategory} - Velouraz Jewellery Collection`
+    ? `Shop ${seoCategory} - VELOURAZ Collection`
     : seoCountry
-      ? `${seoCountry}-Inspired Jewellery - Velouraz Collection`
+      ? `${seoCountry}-Inspired Jewellery - VELOURAZ`
       : 'Shop All Jewellery - Earrings, Bangles, Rings, Necklaces';
   const seoDescription = seoCategory
-    ? `Browse Velouraz ${seoCategory.toLowerCase()} collection. Handpicked, globally curated designs inspired by cultures around the world. Shop now with free insured delivery across India.`
-    : 'Explore the complete Velouraz jewellery collection. Shop earrings, bangles, rings, necklaces, bracelets and bridal wear. Globally curated pieces for the modern woman.';
+    ? `Browse VELOURAZ ${seoCategory.toLowerCase()} collection. Handpicked, globally curated designs inspired by cultures around the world. Shop now with free insured delivery across India.`
+    : 'Explore the complete VELOURAZ collection. Shop earrings, bangles, rings, necklaces, bracelets and bridal wear. Globally curated pieces for the modern woman.';
 
   useSEO({
     title: seoTitle,

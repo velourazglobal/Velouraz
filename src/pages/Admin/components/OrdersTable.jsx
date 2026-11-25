@@ -290,10 +290,12 @@ const OrdersTable = ({ orders = [] }) => {
       : "N/A";
 
     const items = order.items || order.cartItems || [];
-    const sub = order.subtotal || order.totalAmount || 0;
-    const ship = order.shippingFee || 0;
-    const disc = order.discountAmount || 0;
-    const tot = order.totalAmount || order.total || 0;
+    const explicitShipping = order.shippingFee !== undefined && order.shippingFee !== null ? Number(order.shippingFee) : null;
+    const itemsSub = items.reduce((acc, i) => acc + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
+    const sub = Number(order.subtotal || itemsSub || order.totalAmount || 0);
+    const disc = Number(order.discountAmount || 0);
+    const tot = Number(order.totalAmount || order.total || 0);
+    const ship = explicitShipping !== null ? explicitShipping : Math.max(0, tot - Math.max(0, sub - disc));
 
     printWindow.document.write(`
       <html>
@@ -317,7 +319,7 @@ const OrdersTable = ({ orders = [] }) => {
         <body>
           <div class="header">
             <div class="title">VELOURAZ</div>
-            <div class="subtitle">Official Tax Invoice & Authenticity Certificate</div>
+            <div class="subtitle">TAX INVOICE</div>
             <div style="margin-top: 10px; font-size: 13px;">Order Reference: <strong>#${orderNum}</strong></div>
           </div>
           <div class="info">
@@ -1715,40 +1717,51 @@ const OrdersTable = ({ orders = [] }) => {
                 </div>
 
                 {/* Totals Summary */}
-                <div className="flex justify-end pt-2">
-                  <div className="w-full sm:w-80 space-y-2.5 bg-slate-50 p-5 rounded-2xl border border-slate-200/80 text-xs">
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span>Subtotal:</span>
-                      <span className="font-bold text-slate-800 font-mono">
-                        ₹{Number(selectedOrder.subtotal || selectedOrder.totalAmount || 0).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span>Insured Express Delivery:</span>
-                      {Number(selectedOrder.shippingFee) > 0 ? (
-                        <span className="font-bold text-slate-800 font-mono">
-                          ₹{Number(selectedOrder.shippingFee).toLocaleString()}
-                        </span>
-                      ) : (
-                        <span className="font-bold text-emerald-700 uppercase text-[11px]">FREE</span>
-                      )}
-                    </div>
-                    {Number(selectedOrder.discountAmount) > 0 && (
-                      <div className="flex justify-between items-center text-emerald-700">
-                        <span>Discount Applied:</span>
-                        <span className="font-bold font-mono">
-                          -₹{Number(selectedOrder.discountAmount).toLocaleString()}
-                        </span>
+                {(() => {
+                  const explicitShipping = selectedOrder.shippingFee !== undefined && selectedOrder.shippingFee !== null ? Number(selectedOrder.shippingFee) : null;
+                  const itemsSub = (selectedOrder.items || selectedOrder.cartItems || []).reduce((acc, i) => acc + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
+                  const sub = Number(selectedOrder.subtotal || itemsSub || selectedOrder.totalAmount || 0);
+                  const disc = Number(selectedOrder.discountAmount || 0);
+                  const tot = Number(selectedOrder.totalAmount || selectedOrder.total || 0);
+                  const ship = explicitShipping !== null ? explicitShipping : Math.max(0, tot - Math.max(0, sub - disc));
+
+                  return (
+                    <div className="flex justify-end pt-2">
+                      <div className="w-full sm:w-80 space-y-2.5 bg-slate-50 p-5 rounded-2xl border border-slate-200/80 text-xs">
+                        <div className="flex justify-between items-center text-slate-600">
+                          <span>Subtotal:</span>
+                          <span className="font-bold text-slate-800 font-mono">
+                            ₹{sub.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-600">
+                          <span>Insured Express Delivery:</span>
+                          {ship > 0 ? (
+                            <span className="font-bold text-slate-800 font-mono">
+                              ₹{ship.toLocaleString("en-IN")}
+                            </span>
+                          ) : (
+                            <span className="font-bold text-emerald-700 uppercase text-[11px]">FREE</span>
+                          )}
+                        </div>
+                        {disc > 0 && (
+                          <div className="flex justify-between items-center text-emerald-700">
+                            <span>Discount Applied:</span>
+                            <span className="font-bold font-mono">
+                              -₹{disc.toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center text-base font-bold text-slate-900 border-t border-slate-200 pt-2.5">
+                          <span>Total Paid:</span>
+                          <span className="font-sans text-lg text-[#811331]">
+                            ₹{tot.toLocaleString("en-IN")}
+                          </span>
+                        </div>
                       </div>
-                    )}
-                    <div className="flex justify-between items-center text-base font-bold text-slate-900 border-t border-slate-200 pt-2.5">
-                      <span>Total Paid:</span>
-                      <span className="font-sans text-lg text-[#811331]">
-                        ₹{Number(selectedOrder.totalAmount || selectedOrder.total || 0).toLocaleString()}
-                      </span>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             </motion.div>
           </div>

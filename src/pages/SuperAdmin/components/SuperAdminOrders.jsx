@@ -548,6 +548,47 @@ const SuperAdminOrders = ({ orders = [], isDarkMode = false }) => {
                 </div>
               </div>
 
+              {/* Order Financial Totals Summary */}
+              {(() => {
+                const explicitShipping = selectedOrder.shippingFee !== undefined && selectedOrder.shippingFee !== null ? Number(selectedOrder.shippingFee) : null;
+                const itemsSub = (selectedOrder.items || []).reduce((acc, i) => acc + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
+                const sub = Number(selectedOrder.subtotal || itemsSub || selectedOrder.totalAmount || 0);
+                const disc = Number(selectedOrder.discountAmount || 0);
+                const tot = Number(selectedOrder.totalAmount || selectedOrder.total || 0);
+                const ship = explicitShipping !== null ? explicitShipping : Math.max(0, tot - Math.max(0, sub - disc));
+
+                return (
+                  <div className="flex justify-end pt-1">
+                    <div className={`w-full sm:w-80 space-y-2 p-4 rounded-xl border text-xs ${
+                      isDarkMode ? "bg-slate-800/40 border-slate-700 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
+                    }`}>
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span className="font-bold">₹{sub.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Delivery Charges:</span>
+                        <span className={ship > 0 ? "font-bold" : "font-bold text-emerald-600"}>
+                          {ship > 0 ? `₹${ship.toLocaleString("en-IN")}` : "FREE"}
+                        </span>
+                      </div>
+                      {disc > 0 && (
+                        <div className="flex justify-between text-emerald-600 font-bold">
+                          <span>Discount Applied:</span>
+                          <span>- ₹{disc.toLocaleString("en-IN")}</span>
+                        </div>
+                      )}
+                      <div className={`flex justify-between text-sm font-bold border-t pt-2 mt-1 ${
+                        isDarkMode ? "border-slate-700 text-white" : "border-slate-200 text-slate-900"
+                      }`}>
+                        <span>Total Paid:</span>
+                        <span className="text-[#811331]">₹{tot.toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Customer & Shipping Summary Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div

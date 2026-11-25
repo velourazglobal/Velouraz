@@ -34,12 +34,13 @@ const Login = () => {
   const [resetError, setResetError] = useState("");
 
   const handleSuccessfulAuth = () => {
-    const from = location.state?.from || "/";
+    const from = location.state?.from;
     const buyNowItem = location.state?.buyNowItem;
+    const target = (from && from !== "/" && from !== "/login" && from !== "/signup") ? from : "/account";
     if (buyNowItem) {
-      navigate(from, { state: { buyNowItem } });
+      navigate(target, { state: { buyNowItem } });
     } else {
-      navigate(from);
+      navigate(target);
     }
   };
 
@@ -136,8 +137,8 @@ const Login = () => {
             className="text-5xl xl:text-6xl font-light text-white mb-6 leading-[1.1]"
             style={{ fontFamily: SERIF }}
           >
-            Welcome to the<br />
-            <em className="not-italic font-semibold" style={{ color: GOLD }}>House of Velouraz</em>
+            Welcome to<br />
+            <em className="not-italic font-semibold" style={{ color: GOLD }}>VELOURAZ</em>
           </h2>
 
           <p className="text-white/45 text-[16px] max-w-md leading-relaxed mb-10" style={{ fontFamily: SERIF }}>

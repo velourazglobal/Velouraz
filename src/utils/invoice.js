@@ -115,9 +115,14 @@ export const generateInvoicePDF = (order) => {
     (acc, item) => acc + Number(item.price || 0) * Number(item.quantity || 1),
     0
   );
-  const subtotal = Number(order.subtotal || itemsTotal || order.total || 0);
+  const subtotal = Number(order.subtotal !== undefined ? order.subtotal : (itemsTotal || order.total || 0));
   const discountAmount = Number(order.discountAmount || 0);
-  const totalAmount = Number(order.total || order.totalAmount || subtotal - discountAmount);
+  const totalAmount = Number(order.totalAmount || order.total || (subtotal + Number(order.shippingFee || 0) - discountAmount));
+
+  // Determine delivery / shipping fee:
+  // If order.shippingFee is defined, use it. Otherwise, if totalAmount exceeds (subtotal - discountAmount), the difference is the delivery fee.
+  const calculatedShipping = Math.max(0, totalAmount - (subtotal - discountAmount));
+  const shippingFee = order.shippingFee !== undefined ? Number(order.shippingFee) : calculatedShipping;
 
   const displayOrderNum = (order.orderNumber || order.id || "N/A").toUpperCase();
 
@@ -172,8 +177,8 @@ export const generateInvoicePDF = (order) => {
       <body>
         <div class="header">
           <div>
-            <h1 class="brand-title">Velouraz</h1>
-            <div class="brand-subtitle">Official Luxury Tax Invoice</div>
+            <h1 class="brand-title">VELOURAZ</h1>
+            <div class="brand-subtitle">TAX INVOICE</div>
           </div>
           <div class="inv-meta">
             <div class="inv-badge">INVOICE</div>
@@ -194,7 +199,7 @@ export const generateInvoicePDF = (order) => {
           
           <div class="card">
             <div class="card-title">Merchant Details</div>
-            <div class="info-row"><strong>Merchant:</strong> House of Velouraz</div>
+            <div class="info-row"><strong>Merchant:</strong> VELOURAZ</div>
             <div class="info-row"><strong>Support Email:</strong> contact@velouraz.in</div>
             <div class="info-row"><strong>Website:</strong> www.velouraz.in</div>
             <div class="info-row" style="margin-top: 8px;"><strong>Payment Method:</strong> ${paymentMethodText}</div>
@@ -223,6 +228,10 @@ export const generateInvoicePDF = (order) => {
               <span>Subtotal:</span>
               <span>₹${subtotal.toLocaleString("en-IN")}</span>
             </div>
+            <div class="row">
+              <span>Delivery Charges:</span>
+              <span>${shippingFee > 0 ? `₹${shippingFee.toLocaleString("en-IN")}` : `<span style="color: #059669; font-weight: 600;">FREE</span>`}</span>
+            </div>
             ${
               discountAmount > 0
                 ? `<div class="row" style="color: #059669;">
@@ -239,7 +248,7 @@ export const generateInvoicePDF = (order) => {
         </div>
 
         <div class="footer">
-          <p>Thank you for shopping with House of Velouraz. For support or queries regarding your order, please email <strong>contact@velouraz.in</strong>.</p>
+          <p>Thank you for shopping with VELOURAZ. For support or queries regarding your order, please email <strong>contact@velouraz.in</strong>.</p>
           <p>© ${new Date().getFullYear()} VELOURAZ. All rights reserved.</p>
         </div>
 

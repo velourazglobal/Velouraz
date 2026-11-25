@@ -401,8 +401,8 @@ const Checkout = () => {
         key: rzpOrder.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: rzpOrder.amount,
         currency: rzpOrder.currency || "INR",
-        name: "Velouraz Jewellery",
-        description: "Haute Joaillerie Express Order",
+        name: "VELOURAZ",
+        description: "Order Payment",
         image: "/img/logo.png",
         order_id: rzpOrder.razorpayOrderId || rzpOrder.order_id,
         prefill: {
@@ -707,7 +707,9 @@ const Checkout = () => {
                   </div>
                   <div className="flex justify-between text-[#7B6D63]">
                     <span>Insured Delivery</span>
-                    <span className="font-semibold text-emerald-700 uppercase tracking-wider text-[14px]">FREE</span>
+                    <span className={shippingFee === 0 ? "font-semibold text-emerald-700 uppercase tracking-wider text-[14px]" : "font-semibold text-[#2A2623] tracking-wider text-[14px]"}>
+                      {shippingFee === 0 ? 'FREE' : `₹${shippingFee}`}
+                    </span>
                   </div>
                   {appliedCoupon && (
                     <div className="flex justify-between text-emerald-700">

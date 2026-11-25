@@ -264,7 +264,7 @@ const ProductDetail = () => {
         </div>
         <div className="text-center space-y-1">
           <p className="text-xs uppercase tracking-[0.35em] text-[#14111E] font-semibold font-sans">
-            Velouraz Haute Joaillerie
+            VELOURAZ
           </p>
           <p className="text-xs text-[#8C7A6B] font-serif italic">Unveiling Masterpiece Creation...</p>
         </div>
@@ -277,7 +277,7 @@ const ProductDetail = () => {
       <div className="min-h-screen bg-[#FBF9F5] flex flex-col items-center justify-center gap-6 text-center p-6 pt-36">
         <Gem size={52} className="text-[#C8A46A]/60" />
         <h2 className="font-serif text-3xl sm:text-4xl text-[#14111E] font-normal">Creation unavailable or archived.</h2>
-        <p className="text-sm text-[#786C60] max-w-sm font-serif italic">Explore our haute joaillerie boutique collections for handcrafted fine creations.</p>
+        <p className="text-sm text-[#786C60] max-w-sm font-serif italic">Explore our boutique collections for handcrafted fine creations.</p>
         <button
           onClick={() => navigate('/shop')}
           className="px-9 py-4 bg-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-[0.25em] rounded-xl hover:bg-[#251D33] transition-all duration-300 shadow-md font-sans cursor-pointer border border-[#D4B483]/30"
@@ -437,7 +437,7 @@ const ProductDetail = () => {
             <div className="flex items-center justify-between border-b border-[#E5D7C5]/80 pb-5">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="bg-[#14111E] text-[#FBF9F5] text-xs font-bold uppercase tracking-[0.2em] px-4 py-2 rounded-xl shadow-xs font-sans">
-                  {product.category || "Velouraz Jewellery"}
+                  {product.category || "VELOURAZ"}
                 </span>
                 {(product.inspired_country || product.country) && (
                   <span className="bg-[#FBF9F5] border border-[#E5D7C5] text-[#5A4D41] text-xs font-medium tracking-wider px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-2xs font-sans">
@@ -477,7 +477,7 @@ const ProductDetail = () => {
             {/* Collection Indicator & Masterpiece Title */}
             <div className="space-y-2.5">
               <p className="text-xs uppercase tracking-[0.3em] text-[#C8A46A] font-bold flex items-center gap-2 font-sans">
-                <Gem size={14} className="text-[#C8A46A]" /> {product.collectionName || "VELOURAZ HAUTE JOAILLERIE"}
+                <Gem size={14} className="text-[#C8A46A]" /> {product.collectionName || "VELOURAZ"}
               </p>
               <h1 className="font-serif text-3xl sm:text-4xl lg:text-[42px] text-[#14111E] font-normal leading-[1.16] tracking-tight">
                 {product.name}

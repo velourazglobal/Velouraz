@@ -174,7 +174,7 @@ async function sendShipmentNotificationEmail(order, shipping) {
                   <tr>
                     <td align="center" style="border-top: 1px solid #2e2633; margin-top: 30px; padding-top: 25px;">
                       <p style="font-size: 12px; color: #6b6374; margin: 0;">
-                        © ${new Date().getFullYear()} Velouraz High Jewellery. All rights reserved.
+                        © ${new Date().getFullYear()} VELOURAZ. All rights reserved.
                       </p>
                     </td>
                   </tr>
@@ -430,12 +430,29 @@ export default async function handler(req, res) {
         hsn: 711319, // Gold/silver artificial jewellery HSN
       }));
 
+      // Authoritative pricing breakdown for Shiprocket:
+      // Shiprocket calculates Total Invoice Value as: (sub_total + shipping_charges + giftwrap + transaction - total_discount).
+      // orderData.totalAmount is the final total amount paid by the customer.
+      const finalPaidAmount = Math.max(1, Number(orderData.totalAmount || orderData.total || 0));
+      const shippingCharges = Number(orderData.shippingFee || 0);
+      const discount = Number(orderData.discountAmount || 0);
+
+      // Subtotal is the items' cost BEFORE shipping and discounts
+      let subTotal = orderData.subtotal !== undefined
+        ? Number(orderData.subtotal)
+        : Math.max(1, finalPaidAmount - shippingCharges + discount);
+
+      // Ensure that (subTotal + shippingCharges - discount) equals exactly finalPaidAmount
+      if (Math.abs((subTotal + shippingCharges - discount) - finalPaidAmount) > 0.01) {
+        subTotal = Math.max(1, finalPaidAmount - shippingCharges + discount);
+      }
+
       if (orderItems.length === 0) {
         orderItems.push({
-          name: "Velouraz High Jewellery Piece",
+          name: "VELOURAZ Item",
           sku: `VEL-${orderId.slice(0, 8)}`,
           units: 1,
-          selling_price: Math.max(1, Number(orderData.totalAmount || orderData.total || 999)),
+          selling_price: subTotal,
           discount: 0,
           tax: 0,
           hsn: 711319,
@@ -447,15 +464,13 @@ export default async function handler(req, res) {
       const pad = (n) => String(n).padStart(2, "0");
       const orderDateFormatted = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-      const totalVal = Math.max(1, Number(orderData.totalAmount || orderData.total || 0));
-
       // 6. Call Shiprocket Create Adhoc Order API
       const adhocPayload = {
         order_id: String(orderData.orderNumber || orderId).slice(0, 50),
         order_date: orderDateFormatted,
         pickup_location: pickupLocation,
         channel_id: "",
-        comment: "Velouraz High Jewellery Express Delivery",
+        comment: "VELOURAZ Express Delivery",
         billing_customer_name: cName,
         billing_last_name: "",
         billing_address: cFlat ? `${cFlat}, ${cAddress}` : cAddress,
@@ -469,11 +484,11 @@ export default async function handler(req, res) {
         shipping_is_billing: true,
         order_items: orderItems,
         payment_method: "Prepaid",
-        shipping_charges: Number(orderData.shippingFee || 0),
+        shipping_charges: shippingCharges,
         giftwrap_charges: 0,
         transaction_charges: 0,
-        total_discount: Number(orderData.discountAmount || 0),
-        sub_total: totalVal,
+        total_discount: discount,
+        sub_total: subTotal,
         length,
         breadth,
         height,
