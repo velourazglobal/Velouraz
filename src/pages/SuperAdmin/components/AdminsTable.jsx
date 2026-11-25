@@ -210,8 +210,8 @@ const AdminsTable = ({ adminsList = [], superAdminsList = [], onRefresh, isDarkM
                         ) : (
                           <div
                             className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-base ${isSuper
-                                ? "bg-gradient-to-tr from-[#811331] to-[#b32049] text-white"
-                                : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white"
+                              ? "bg-gradient-to-tr from-[#811331] to-[#b32049] text-white"
+                              : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-white"
                               }`}
                           >
                             {(acc.displayName || acc.adminId || acc.email || "A").charAt(0).toUpperCase()}
@@ -337,8 +337,8 @@ const AdminsTable = ({ adminsList = [], superAdminsList = [], onRefresh, isDarkM
                     onChange={(e) => setAdminId(e.target.value)}
                     placeholder="e.g. admin_alex"
                     className={`w-full px-4 py-2.5 rounded-xl text-base outline-none border ${isDarkMode
-                        ? "bg-slate-800 border-slate-700 text-white"
-                        : "bg-slate-50 border-slate-200 text-slate-900"
+                      ? "bg-slate-800 border-slate-700 text-white"
+                      : "bg-slate-50 border-slate-200 text-slate-900"
                       }`}
                   />
                 </div>
@@ -353,8 +353,8 @@ const AdminsTable = ({ adminsList = [], superAdminsList = [], onRefresh, isDarkM
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="e.g. Alex Morgan"
                     className={`w-full px-4 py-2.5 rounded-xl text-base outline-none border ${isDarkMode
-                        ? "bg-slate-800 border-slate-700 text-white"
-                        : "bg-slate-50 border-slate-200 text-slate-900"
+                      ? "bg-slate-800 border-slate-700 text-white"
+                      : "bg-slate-50 border-slate-200 text-slate-900"
                       }`}
                   />
                 </div>
@@ -371,8 +371,8 @@ const AdminsTable = ({ adminsList = [], superAdminsList = [], onRefresh, isDarkM
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin.alex@velouraz.com"
                   className={`w-full px-4 py-2.5 rounded-xl text-base outline-none border ${isDarkMode
-                      ? "bg-slate-800 border-slate-700 text-white"
-                      : "bg-slate-50 border-slate-200 text-slate-900"
+                    ? "bg-slate-800 border-slate-700 text-white"
+                    : "bg-slate-50 border-slate-200 text-slate-900"
                     }`}
                 />
               </div>
@@ -388,8 +388,8 @@ const AdminsTable = ({ adminsList = [], superAdminsList = [], onRefresh, isDarkM
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Set login password"
                   className={`w-full px-4 py-2.5 rounded-xl text-base outline-none border font-mono ${isDarkMode
-                      ? "bg-slate-800 border-slate-700 text-white"
-                      : "bg-slate-50 border-slate-200 text-slate-900"
+                    ? "bg-slate-800 border-slate-700 text-white"
+                    : "bg-slate-50 border-slate-200 text-slate-900"
                     }`}
                 />
               </div>
@@ -405,8 +405,8 @@ const AdminsTable = ({ adminsList = [], superAdminsList = [], onRefresh, isDarkM
                     onChange={(e) => setPhotoURL(e.target.value)}
                     placeholder="https://..."
                     className={`flex-1 px-4 py-2.5 rounded-xl text-base outline-none border ${isDarkMode
-                        ? "bg-slate-800 border-slate-700 text-white"
-                        : "bg-slate-50 border-slate-200 text-slate-900"
+                      ? "bg-slate-800 border-slate-700 text-white"
+                      : "bg-slate-50 border-slate-200 text-slate-900"
                       }`}
                   />
                   <label className="flex items-center justify-center px-3.5 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 cursor-pointer bg-slate-50 hover:bg-slate-100 dark:bg-slate-800">

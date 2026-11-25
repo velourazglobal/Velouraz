@@ -65,6 +65,7 @@ import {
 import SuperAdminAuth from "./SuperAdminAuth";
 import MetricCards from "../Admin/components/MetricCards";
 import ProductsTable from "../Admin/components/ProductsTable";
+import OrdersTable from "../Admin/components/OrdersTable";
 import UsersTable from "../Admin/components/UsersTable";
 import MediaLibrary from "../Admin/components/MediaLibrary";
 import ProductEditor from "../Admin/components/ProductEditor";
@@ -79,7 +80,6 @@ import TagsManager from "../Admin/components/TagsManager";
 import CouponManager from "../Admin/components/CouponManager";
 import ReplacementsManager from "../Admin/components/ReplacementsManager";
 import AdminsTable from "./components/AdminsTable";
-import SuperAdminOrders from "./components/SuperAdminOrders";
 import { listenToProducts, listenToTrashedProducts, trashProduct, restoreProduct, permanentlyDeleteProduct } from "../../services/productService";
 
 // Chart.js imports
@@ -117,6 +117,19 @@ const sortNewest = (rows) => [...rows].sort((a, b) => {
   const toMillis = (value) => value?.toMillis?.() ?? new Date(value || 0).getTime();
   return toMillis(b.createdAt || b.orderDate || b.date) - toMillis(a.createdAt || a.orderDate || a.date);
 });
+
+// Helper to verify if an order has confirmed payment
+export const isPaidOrder = (order) => {
+  if (!order) return false;
+  const payStatus = String(order.paymentStatus || "").trim().toUpperCase();
+  if (payStatus === "PAID" || payStatus === "SUCCESS" || payStatus === "CAPTURED") return true;
+  const ordStatus = String(order.orderStatus || order.status || "").trim().toUpperCase();
+  if (ordStatus === "CONFIRMED" || ordStatus === "PROCESSING" || ordStatus === "SHIPPED" || ordStatus === "DELIVERED") {
+    // If order is confirmed/shipped/delivered and not explicitly failed or pending COD
+    if (payStatus !== "FAILED" && payStatus !== "PENDING" && payStatus !== "UNPAID") return true;
+  }
+  return false;
+};
 
 const SuperAdmin = () => {
   const [activeItem, setActiveItem] = useState("Dashboard");
@@ -216,7 +229,9 @@ const SuperAdmin = () => {
     });
 
     const snapOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
-      setOrders(sortNewest(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))));
+      const allOrders = sortNewest(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      // Show only confirmed paid orders in Super Admin panel
+      setOrders(allOrders.filter(isPaidOrder));
     });
 
     const snapAdmins = onSnapshot(collection(db, "admins"), (snapshot) => {
@@ -910,7 +925,7 @@ const SuperAdmin = () => {
         );
 
       case "Orders":
-        return <SuperAdminOrders orders={orders} isDarkMode={isDarkMode} />;
+        return <OrdersTable orders={orders} />;
 
       case "Replacement Manager":
       case "ReplacementsManager":
