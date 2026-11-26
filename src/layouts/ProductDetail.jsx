@@ -15,6 +15,7 @@ import AddToCartModal from "../components/AddToCartModal";
 import NotifyMeModal from "../components/NotifyMeModal";
 import OptimizedImage from "../components/common/OptimizedImage";
 import useSEO from "../hooks/useSEO";
+import { checkCourierServiceability } from "../services/shiprocketService";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -36,8 +37,15 @@ const ProductDetail = () => {
   const [sameCountryProducts, setSameCountryProducts] = useState([]);
   const [relatedLoading, setRelatedLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [pincode, setPincode] = useState('');
+  const [pincode, setPincode] = useState(() => {
+    try {
+      return sessionStorage.getItem("velouraz_delivery_pincode") || "";
+    } catch {
+      return "";
+    }
+  });
   const [pincodeStatus, setPincodeStatus] = useState(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
   const [giftWrap, setGiftWrap] = useState(false);
 
   const { addToCart, addToWishlist, isInCart, isInWishlist } = useStore();
@@ -233,14 +241,109 @@ const ProductDetail = () => {
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const checkDeliveryPincode = (e) => {
-    e.preventDefault();
-    if (pincode.length === 6 && /^\d+$/.test(pincode)) {
-      setPincodeStatus({ success: true, msg: "Insured Express Delivery available! Delivered within 2-3 business days via Insured Courier." });
-    } else {
-      setPincodeStatus({ success: false, msg: "Please enter a valid 6-digit Indian Pincode." });
+  const checkDeliveryPincode = async (e, customPin) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const targetPin = customPin || pincode;
+    const cleanPin = String(targetPin || "").replace(/\D/g, "").trim();
+
+    if (cleanPin.length !== 6) {
+      setPincodeStatus({
+        success: false,
+        msg: "Please enter a valid 6-digit Indian Pincode.",
+      });
+      return;
+    }
+
+    setCheckingPincode(true);
+    setPincodeStatus(null);
+
+    try {
+      const res = await checkCourierServiceability({
+        pickupPincode: "452014",
+        deliveryPincode: cleanPin,
+        weight: "0.35",
+      });
+
+      if (res.serviceable && res.couriers && res.couriers.length > 0) {
+        try {
+          sessionStorage.setItem("velouraz_delivery_pincode", cleanPin);
+        } catch {
+          // ignore
+        }
+
+        const topCourier = res.fastestCourier || res.couriers[0];
+        const days = Number(topCourier.estimated_delivery_days) || Number(res.estimatedDeliveryDays) || null;
+
+        let deliveryDateStr = "";
+        if (res.formattedEtd) {
+          deliveryDateStr = res.formattedEtd;
+        } else if (topCourier.etd) {
+          const d = new Date(topCourier.etd);
+          if (!isNaN(d.getTime())) {
+            deliveryDateStr = d.toLocaleDateString("en-IN", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            });
+          }
+        }
+
+        if (!deliveryDateStr && days) {
+          const d = new Date();
+          d.setDate(d.getDate() + days);
+          deliveryDateStr = d.toLocaleDateString("en-IN", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          });
+        }
+
+        const courierName = topCourier.courier_name || "Shiprocket Express";
+
+        setPincodeStatus({
+          success: true,
+          pincode: cleanPin,
+          courierName,
+          days: days ? `${days} business day${days > 1 ? "s" : ""}` : "2-3 business days",
+          deliveryDate: deliveryDateStr,
+          city: res.city || topCourier.city || "",
+          state: res.state || topCourier.state || "",
+          couriersCount: res.couriers.length,
+          msg: deliveryDateStr
+            ? `Estimated delivery by ${deliveryDateStr} via ${courierName}`
+            : `Delivered within ${days || "2-3"} business days via ${courierName}`,
+        });
+      } else {
+        setPincodeStatus({
+          success: false,
+          pincode: cleanPin,
+          msg: res.message || `Delivery is currently not available for pincode ${cleanPin}. Please try another location.`,
+        });
+      }
+    } catch (err) {
+      console.warn("[Delivery Estimator Notice]:", err?.message);
+      setPincodeStatus({
+        success: false,
+        pincode: cleanPin,
+        msg: err.message || `Unable to check delivery for pincode ${cleanPin}. Please verify and try again.`,
+      });
+    } finally {
+      setCheckingPincode(false);
     }
   };
+
+  // Auto-check saved pincode once if user already verified a pincode earlier in the session
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("velouraz_delivery_pincode");
+      if (saved && saved.length === 6) {
+        checkDeliveryPincode(null, saved);
+      }
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getFlag = (country = "") => {
     const c = country.toLowerCase().trim();
@@ -568,27 +671,98 @@ const ProductDetail = () => {
 
               {/* Delivery Estimator */}
               {product.stock > 0 && (
-                <div className="bg-[#F6F2EC] p-4 sm:p-5 rounded-2xl border border-[#E5D7C5] space-y-3 shadow-2xs overflow-hidden">
-                  <label className="text-xs sm:text-sm font-bold uppercase tracking-[0.14em] text-[#14111E] flex items-center gap-2.5 font-sans">
-                    <Truck size={17} className="text-[#C8A46A] shrink-0" /> Express Delivery Estimator
-                  </label>
+                <div className="bg-[#F6F2EC] p-4 sm:p-5 rounded-2xl border border-[#E5D7C5] space-y-3.5 shadow-2xs overflow-hidden">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs sm:text-sm font-bold uppercase tracking-[0.14em] text-[#14111E] flex items-center gap-2 font-sans">
+                      <Truck size={17} className="text-[#C8A46A] shrink-0" /> Express Delivery Estimator
+                    </label>
+                    <span className="text-[11px] font-sans text-[#786C60] font-medium flex items-center gap-1">
+                      <Shield size={12} className="text-[#C8A46A]" /> 100% Insured Transit
+                    </span>
+                  </div>
+
                   <form onSubmit={checkDeliveryPincode} className="flex items-center gap-2 sm:gap-2.5">
-                    <input
-                      type="text"
-                      maxLength={6}
-                      placeholder="Enter 6-digit Pincode"
-                      value={pincode}
-                      onChange={(e) => setPincode(e.target.value)}
-                      className="flex-1 min-w-0 px-3.5 sm:px-4 py-3 bg-white border border-[#E5D7C5] rounded-xl text-xs sm:text-sm outline-none focus:border-[#14111E] focus:ring-1 focus:ring-[#14111E] transition-all font-sans placeholder:text-gray-400"
-                    />
-                    <button type="submit" className="px-4 sm:px-6 py-3 bg-[#14111E] text-[#FBF9F5] text-xs sm:text-sm font-bold uppercase tracking-wider rounded-xl hover:bg-[#251D33] transition-colors cursor-pointer font-sans shadow-xs border border-[#C8A46A]/30 shrink-0">
-                      Check
+                    <div className="relative flex-1 min-w-0">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="Enter 6-digit Pincode"
+                        value={pincode}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                          setPincode(val);
+                          if (pincodeStatus) setPincodeStatus(null);
+                        }}
+                        className="w-full px-3.5 sm:px-4 py-3 bg-white border border-[#E5D7C5] rounded-xl text-xs sm:text-sm outline-none focus:border-[#14111E] focus:ring-1 focus:ring-[#14111E] transition-all font-sans placeholder:text-gray-400 font-mono tracking-wider"
+                      />
+                      {pincode && (
+                        <button
+                          type="button"
+                          onClick={() => { setPincode(""); setPincodeStatus(null); }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={checkingPincode || pincode.length !== 6}
+                      className="px-4 sm:px-6 py-3 bg-[#14111E] text-[#FBF9F5] text-xs sm:text-sm font-bold uppercase tracking-wider rounded-xl hover:bg-[#251D33] transition-all cursor-pointer font-sans shadow-xs border border-[#C8A46A]/30 shrink-0 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {checkingPincode ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin text-[#C8A46A]" />
+                          <span>Checking...</span>
+                        </>
+                      ) : (
+                        <span>Check</span>
+                      )}
                     </button>
                   </form>
+
                   {pincodeStatus && (
-                    <p className={`text-xs sm:text-sm font-serif italic ${pincodeStatus.success ? 'text-emerald-700 font-medium' : 'text-rose-600'}`}>
-                      {pincodeStatus.msg}
-                    </p>
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`p-3.5 rounded-xl border text-xs sm:text-sm font-sans ${
+                        pincodeStatus.success
+                          ? "bg-white border-emerald-200 text-slate-800"
+                          : "bg-rose-50/80 border-rose-200 text-rose-700"
+                      }`}
+                    >
+                      {pincodeStatus.success ? (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                            <span className="font-bold text-emerald-800">
+                              Delivery available to {pincodeStatus.pincode}
+                              {pincodeStatus.city ? ` (${pincodeStatus.city})` : ""}
+                            </span>
+                          </div>
+
+                          <div className="pl-6 space-y-0.5 text-xs text-slate-600">
+                            {pincodeStatus.deliveryDate ? (
+                              <p className="font-semibold text-slate-900">
+                                📅 Expected Delivery: <span className="text-[#811331] font-bold">{pincodeStatus.deliveryDate}</span> ({pincodeStatus.days})
+                              </p>
+                            ) : (
+                              <p className="font-semibold text-slate-900">
+                                ⏱️ Estimated Delivery: <span className="text-[#811331] font-bold">{pincodeStatus.days}</span>
+                              </p>
+                            )}
+                            <p className="text-[11px] text-slate-500">
+                              Dispatched from Indore atelier via <strong className="text-slate-700">{pincodeStatus.courierName}</strong> in tamper-proof, insured casing.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2">
+                          <X size={15} className="text-rose-600 shrink-0 mt-0.5" />
+                          <p className="leading-snug">{pincodeStatus.msg}</p>
+                        </div>
+                      )}
+                    </motion.div>
                   )}
                 </div>
               )}

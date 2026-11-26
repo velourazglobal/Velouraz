@@ -262,17 +262,84 @@ export default async function handler(req, res) {
       ).trim();
       const delivery_postcode = String(
         req.query?.delivery_postcode || body?.delivery_postcode || ""
-      ).trim();
-      const weight = String(req.query?.weight || body?.weight || "0.5").trim();
+      ).replace(/\D/g, "").trim();
+      const weight = String(req.query?.weight || body?.weight || "0.35").trim();
       const cod = "0"; // Prepaid orders only
 
       if (!delivery_postcode || delivery_postcode.length !== 6) {
         return res.status(400).json({
           success: false,
+          serviceable: false,
           message: "Please provide a valid 6-digit delivery pincode.",
         });
       }
 
+      const srEmail = (process.env.SHIPROCKET_EMAIL || "").trim();
+      const srPass = (process.env.SHIPROCKET_PASSWORD || "").trim();
+
+      // In local dev without Shiprocket credentials, provide realistic simulation
+      if (!srEmail || !srPass) {
+        console.warn("[Shiprocket Serviceability] Credentials not configured in environment. Using simulated serviceability.");
+        const isCommonPin = /^[1-8][0-9]{5}$/.test(delivery_postcode);
+        if (!isCommonPin) {
+          return res.status(200).json({
+            success: true,
+            serviceable: false,
+            simulated: true,
+            pickup_postcode,
+            delivery_postcode,
+            couriersCount: 0,
+            couriers: [],
+            message: `Delivery is currently not available for pincode ${delivery_postcode}.`,
+          });
+        }
+
+        const estDays = delivery_postcode.startsWith("45") ? 1 : delivery_postcode.startsWith("4") ? 2 : 3;
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + estDays);
+        const etdDateStr = targetDate.toLocaleDateString("en-IN", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        });
+
+        const simulatedCouriers = [
+          {
+            courier_company_id: 10,
+            courier_name: "Xpressbees Air",
+            rate: 35,
+            etd: targetDate.toISOString().split("T")[0],
+            estimated_delivery_days: estDays,
+            rating: 4.5,
+            call_type: "air",
+          },
+          {
+            courier_company_id: 1,
+            courier_name: "Blue Dart Air",
+            rate: 45,
+            etd: targetDate.toISOString().split("T")[0],
+            estimated_delivery_days: estDays + 1,
+            rating: 4.8,
+            call_type: "air",
+          },
+        ];
+
+        return res.status(200).json({
+          success: true,
+          serviceable: true,
+          simulated: true,
+          pickup_postcode,
+          delivery_postcode,
+          couriersCount: simulatedCouriers.length,
+          couriers: simulatedCouriers,
+          fastestCourier: simulatedCouriers[0],
+          estimatedDeliveryDays: estDays,
+          etd: targetDate.toISOString().split("T")[0],
+          formattedEtd: etdDateStr,
+        });
+      }
+
+      // Live Shiprocket API call
       const params = new URLSearchParams({
         pickup_postcode,
         delivery_postcode,
@@ -285,9 +352,28 @@ export default async function handler(req, res) {
       });
 
       if (!response.ok) {
+        const errorMsg = response.data?.message || "";
+        const isNotServiceable =
+          response.status === 404 ||
+          response.status === 422 ||
+          /not serviceable|no courier|unserviceable|service not available/i.test(errorMsg);
+
+        if (isNotServiceable) {
+          return res.status(200).json({
+            success: true,
+            serviceable: false,
+            pickup_postcode,
+            delivery_postcode,
+            couriersCount: 0,
+            couriers: [],
+            message: errorMsg || `Delivery is currently not available for pincode ${delivery_postcode}.`,
+          });
+        }
+
         return res.status(response.status || 400).json({
           success: false,
-          message: response.data?.message || "Delivery location serviceability check failed.",
+          serviceable: false,
+          message: errorMsg || "Delivery location serviceability check failed.",
           error: response.data,
         });
       }
@@ -302,10 +388,21 @@ export default async function handler(req, res) {
         rating: c.rating,
         min_weight: c.min_weight,
         call_type: c.call_type,
+        city: c.city || response.data?.data?.delivery_city || "",
+        state: c.state || response.data?.data?.delivery_state || "",
       }));
 
-      // Sort by best rating and lowest rate
-      formattedCouriers.sort((a, b) => a.rate - b.rate);
+      // Sort by fastest delivery first (lowest estimated_delivery_days), then lowest rate
+      formattedCouriers.sort((a, b) => {
+        const daysA = Number(a.estimated_delivery_days) || 999;
+        const daysB = Number(b.estimated_delivery_days) || 999;
+        if (daysA !== daysB) return daysA - daysB;
+        return a.rate - b.rate;
+      });
+
+      const fastestCourier = formattedCouriers[0] || null;
+      const minDays = fastestCourier ? Number(fastestCourier.estimated_delivery_days) : null;
+      const etd = fastestCourier?.etd || null;
 
       return res.status(200).json({
         success: true,
@@ -314,6 +411,11 @@ export default async function handler(req, res) {
         delivery_postcode,
         couriersCount: formattedCouriers.length,
         couriers: formattedCouriers,
+        fastestCourier,
+        estimatedDeliveryDays: !isNaN(minDays) ? minDays : null,
+        etd,
+        city: fastestCourier?.city || response.data?.data?.delivery_city || null,
+        state: fastestCourier?.state || response.data?.data?.delivery_state || null,
       });
     }
 
