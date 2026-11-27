@@ -74,20 +74,35 @@ const Checkout = () => {
     }
   }, [location.state]);
 
-  // Comprehensive Form State
-  const [formData, setFormData] = useState({
-    name: user?.displayName || "",
-    email: user?.email || "",
-    phone: "",
-    alternatePhone: "",
-    flat: "",
-    address: "",
-    city: "",
-    state: "",
-    pincode: "",
-    country: "India",
-    type: "Home",
-    saveToAccount: true,
+  // Comprehensive Form State (Auto-filled from localStorage or active user)
+  const [formData, setFormData] = useState(() => {
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem('velouraz_saved_customer_details') || 'null');
+    } catch {}
+    return {
+      name: user?.displayName || saved?.name || "",
+      email: user?.email || saved?.email || "",
+      phone: saved?.phone || "",
+      alternatePhone: saved?.alternatePhone || "",
+      flat: saved?.flat || "",
+      address: saved?.address || "",
+      city: saved?.city || "",
+      state: saved?.state || "",
+      pincode: saved?.pincode || "",
+      country: saved?.country || "India",
+      type: saved?.type || "Home",
+      saveToAccount: true,
+    };
+  });
+
+  const [isAutoFilledLocally] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velouraz_saved_customer_details');
+      return Boolean(saved && JSON.parse(saved)?.phone);
+    } catch {
+      return false;
+    }
   });
 
 
@@ -223,10 +238,18 @@ const Checkout = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value
+      };
+      try {
+        localStorage.setItem('velouraz_saved_customer_details', JSON.stringify(updated));
+      } catch (err) {
+        console.warn("Could not save customer details to localStorage:", err);
+      }
+      return updated;
+    });
   };
 
   const handleSelectSavedAddress = (index) => {
@@ -799,10 +822,15 @@ const Checkout = () => {
 
               {/* COMPREHENSIVE ADDRESS INPUT FIELDS */}
               <div className="space-y-3.5 pt-1">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-[#7B6D63]">
                     {savedAddresses.length > 0 && !isNewAddress ? "Selected Delivery Details" : "Delivery Address Details"}
                   </h4>
+                  {isAutoFilledLocally && (
+                    <span className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-semibold tracking-wide">
+                      <Check size={11} className="text-emerald-600" /> Auto-filled for faster checkout
+                    </span>
+                  )}
                   {savedAddresses.length > 0 && !isNewAddress && (
                     <span className="text-xs text-[#C8A46A] italic hidden sm:inline">Auto-filled from address book</span>
                   )}

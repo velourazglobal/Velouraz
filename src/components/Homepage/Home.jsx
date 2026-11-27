@@ -10,7 +10,7 @@ import CategorySection from './CategorySection'
 import Stories from './Stories'
 import Marquee from './Marquee'
 import Newsletter from '../Newsletter'
-import FAQ from './FAQ'
+import AboutSection from './AboutSection'
 
 function Home() {
   useSEO({
@@ -113,7 +113,7 @@ function Home() {
       <TestimonialSection />
       {/* <Stories/> */}
       <TheJournal />
-      <FAQ />
+      <AboutSection />
       <Newsletter />
     </>
   )

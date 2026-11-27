@@ -185,11 +185,11 @@ const LuxuryHeader = () => {
   const navLinks = [
     { name: 'New Arrivals', href: '/shop?filter=new' },
     { name: 'Best Sellers', href: '/shop?filter=bestsellers' },
-    { name: 'World Edit', href: '/world-edit', hasDropdown: true },
     { name: 'Gallery', href: '/gallery' },
     { name: 'Blogs', href: '/blog' },
     { name: 'Our Story', href: '/about' },
     { name: 'Contact Us', href: '/contact' },
+    { name: 'World Edit', href: '/world-edit', hasDropdown: true },
   ];
 
   useEffect(() => {

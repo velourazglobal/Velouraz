@@ -26,6 +26,7 @@ const Orders = lazy(() => import("./pages/Orders"));
 const OrderTracking = lazy(() => import("./pages/OrderTracking"));
 const About = lazy(() => import("./pages/About"));
 const Contact = lazy(() => import("./pages/Contact"));
+const FAQ = lazy(() => import("./pages/FAQ"));
 const Shop = lazy(() => import("./pages/Shop"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const OrderSuccess = lazy(() => import("./pages/OrderSuccess"));
@@ -41,6 +42,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 import WhatsAppButton from "./components/WhatsAppButton";
 import InstagramButton from "./components/InstagramButton";
+import AbandonedCartReminder from "./components/AbandonedCartReminder";
 
 const AppRoutes = () => {
   const location = useLocation();
@@ -73,6 +75,7 @@ const AppRoutes = () => {
           <Route path="/track-order/:id" element={<Orders />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/faq" element={<FAQ />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/product/:id/quickview" element={<QuickView />} />
@@ -92,6 +95,7 @@ const AppRoutes = () => {
       {!hideChrome && <Footer />}
       {!hideChrome && <InstagramButton />}
       {!hideChrome && <WhatsAppButton />}
+      {!hideChrome && <AbandonedCartReminder />}
     </>
   );
 };

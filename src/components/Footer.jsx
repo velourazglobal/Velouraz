@@ -1,22 +1,42 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Instagram, ShieldCheck, Truck, RefreshCw, Gem, Lock, ArrowUpRight, Mail, CheckCircle2, Sparkles, Package } from 'lucide-react';
+import { Instagram, ShieldCheck, Truck, RefreshCw, Gem, Lock, ArrowUpRight, CheckCircle2, Sparkles, Package, MessageSquare } from 'lucide-react';
+import { db } from './Firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubscribe = (e) => {
+  const handleSubscribe = async (e) => {
     e.preventDefault();
-    if (!email || !email.includes('@')) return;
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length < 10) return;
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await addDoc(collection(db, "newsletter_whatsapp"), {
+        phone: cleanPhone,
+        countryCode: "+91",
+        createdAt: serverTimestamp(),
+        source: 'footer_newsletter',
+        subscribed: true
+      });
+    } catch (err) {
+      console.warn("Subscriber save notice:", err);
+    } finally {
       setLoading(false);
       setSubscribed(true);
-      setEmail('');
-    }, 600);
+      window.open(
+        `https://wa.me/918349440045?text=${encodeURIComponent(
+          `Hello Velouraz Atelier, I would like to join the Velouraz Privé Inner Circle on WhatsApp! My contact: +91 ${cleanPhone}`
+        )}`,
+        '_blank',
+        'noopener,noreferrer'
+      );
+      setPhone('');
+    }
   };
 
   const sections = [
@@ -33,7 +53,8 @@ const Footer = () => {
       links: [
         { name: "Track Orders", href: "/orders" },
         { name: "Shopping Bag", href: "/cart" },
-        { name: "My Wishlist", href: "/wishlist" }
+        { name: "My Wishlist", href: "/wishlist" },
+        { name: "FAQs & Care", href: "/faq" }
       ]
     },
     {
@@ -87,7 +108,61 @@ const Footer = () => {
 
       {/* Top Value Proposition Strip */}
 
-      {/* VIP Atelier Newsletter Subscription Section */}
+      {/* VIP Atelier WhatsApp Subscription Section */}
+      <div className="relative py-10 px-6 lg:px-12 bg-[#FAF6F0] border-b border-[#E8DFC8]">
+        <div className="max-w-[1440px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-6">
+          <div className="space-y-1.5 text-center lg:text-left max-w-xl">
+            <div className="inline-flex items-center gap-2 text-xs font-bold tracking-[0.2em] text-[#B89355] uppercase font-sans">
+              <Sparkles size={13} /> VIP Atelier Inner Circle
+            </div>
+            <h3 className="font-serif text-2xl sm:text-3xl text-[#2A2623] font-light">
+              Receive Private Drops on <span className="italic font-normal text-[#B89355]">WhatsApp</span>
+            </h3>
+            <p className="text-xs sm:text-sm text-[#7B6D63] font-normal leading-relaxed">
+              Connect directly with our atelier at +91 83494 40045 for exclusive piece previews and priority concierge.
+            </p>
+          </div>
+
+          <div className="w-full lg:w-auto">
+            {subscribed ? (
+              <div className="flex items-center gap-3 px-6 py-3 bg-emerald-50 border border-emerald-200 rounded-full text-emerald-800 text-xs sm:text-sm font-semibold">
+                <CheckCircle2 size={16} className="text-emerald-600" />
+                <span>Connected on WhatsApp (+91 83494 40045)</span>
+              </div>
+            ) : (
+              <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-xs font-mono font-bold text-[#7B6D63] border-r border-[#E8DFC8] pr-2">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={12}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="WhatsApp mobile number"
+                    className="w-full sm:w-64 pl-14 pr-4 py-3 rounded-full bg-white border border-[#E8DFC8] text-xs sm:text-sm text-[#2A2623] placeholder:text-[#7B6D63]/60 focus:outline-none focus:border-[#B89355] focus:ring-1 focus:ring-[#B89355]/40 transition-all shadow-xs font-mono"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-3 rounded-full bg-[#14111E] hover:bg-[#B89355] text-white text-xs font-bold uppercase tracking-[0.18em] transition-all duration-300 shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                >
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <MessageSquare size={15} /> Join on WhatsApp
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Main Footer Links & Brand Section */}
       <div className="relative pt-16 pb-14 px-6 lg:px-12 bg-gradient-to-b from-[#FAF6F0] via-[#F5ECE0] to-[#EFE6DC]">

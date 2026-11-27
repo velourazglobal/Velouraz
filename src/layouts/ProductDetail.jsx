@@ -9,7 +9,7 @@ import {
   Star, Shield, Truck, RotateCcw, Heart, ShoppingBag,
   Share2, Gem, Sparkles, Loader2, ChevronRight,
   Eye, Award, Gift, RefreshCw, ZoomIn, Check,
-  ArrowRight, Lock, X, CheckCircle2, ChevronDown, Compass, Bell, Package
+  ArrowRight, ArrowLeft, Lock, X, CheckCircle2, ChevronDown, Compass, Bell, Package
 } from 'lucide-react';
 import AddToCartModal from "../components/AddToCartModal";
 import NotifyMeModal from "../components/NotifyMeModal";
@@ -235,6 +235,14 @@ const ProductDetail = () => {
     navigate('/checkout', { state: { buyNowItem } });
   };
 
+  const handleBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/shop');
+    }
+  };
+
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopiedLink(true);
@@ -395,6 +403,19 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#FBF9F5] font-sans text-[#14111E] selection:bg-[#14111E] selection:text-[#FBF9F5]">
+
+      {/* Sticky Floating Back Button (Accessible on Mobile & Desktop) */}
+      <div className="fixed top-20 sm:top-24 left-3 sm:left-6 z-40">
+        <button
+          type="button"
+          onClick={handleBack}
+          aria-label="Go back to previous page"
+          className="group flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2 rounded-full bg-white/95 hover:bg-white text-[#14111E] hover:text-[#C8A46A] border border-[#C8A46A]/30 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.08)] hover:shadow-[0_6px_25px_rgba(200,164,106,0.25)] transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer font-sans text-xs sm:text-sm font-semibold tracking-wide"
+        >
+          <ArrowLeft size={16} className="transition-transform duration-300 group-hover:-translate-x-1 text-[#C8A46A]" />
+          <span>Back</span>
+        </button>
+      </div>
 
       {/* Exact High Luxury Header Banner (Preserved Hero Breadcrumb Banner) */}
       <div className="relative w-full bg-[#120E15] py-8 pt-[170px] pb-10 border-b border-[#C8A46A]/20 text-center overflow-hidden">

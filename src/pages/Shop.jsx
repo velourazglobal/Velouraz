@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../components/Firebase';
 import { collection, getDocs, onSnapshot, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import {
-  Search, Heart, ShoppingBag, Eye, ChevronRight,
+  Search, Heart, ShoppingBag, Eye, ChevronRight, ChevronLeft,
   Loader2, SlidersHorizontal, X, RotateCcw, Check, Sparkles, Filter, Tag,
   Clock, Bell, Send, CheckCircle2, MessageSquare, ArrowRight, Package, Globe
 } from 'lucide-react';
@@ -327,7 +327,8 @@ const Shop = () => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [addModalProduct, setAddModalProduct] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(24);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 16;
 
   // Filter States
   const [priceLimit, setPriceLimit] = useState(100000);
@@ -730,14 +731,23 @@ const Shop = () => {
     return 0;
   });
 
-  // Reset pagination to first 24 whenever filter criteria change
+  // Reset pagination to first page whenever filter criteria change
   useEffect(() => {
-    setVisibleCount(24);
+    setCurrentPage(1);
   }, [searchTerm, selectedCategory, selectedCountry, priceLimit, selectedMaterials, selectedTags, availability, sortBy]);
 
+  const totalPages = Math.max(1, Math.ceil(sortedProducts.length / PRODUCTS_PER_PAGE));
+
   const visibleProducts = useMemo(() => {
-    return sortedProducts.slice(0, visibleCount);
-  }, [sortedProducts, visibleCount]);
+    const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
+    return sortedProducts.slice(startIndex, startIndex + PRODUCTS_PER_PAGE);
+  }, [sortedProducts, currentPage]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 350, behavior: 'smooth' });
+  };
 
   // Refined Sidebar Content Component
   const FilterSidebarContent = () => (
@@ -1211,19 +1221,75 @@ const Shop = () => {
                   );
                 })}
 
-                {/* Batch Pagination Control */}
-                {visibleCount < sortedProducts.length && (
-                  <div className="col-span-full flex flex-col items-center justify-center pt-8 pb-4 gap-3">
+                {/* Numbered Pagination Control */}
+                {totalPages > 1 && (
+                  <div className="col-span-full flex flex-col items-center justify-center pt-10 pb-4 gap-4">
                     <p className="text-xs text-[#7B6D63] font-sans">
-                      Showing {Math.min(visibleCount, sortedProducts.length)} of {sortedProducts.length} pieces
+                      Showing {((currentPage - 1) * PRODUCTS_PER_PAGE) + 1}–{Math.min(currentPage * PRODUCTS_PER_PAGE, sortedProducts.length)} of {sortedProducts.length} pieces
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setVisibleCount((prev) => prev + 24)}
-                      className="px-8 py-3.5 rounded-full border border-[#2e0e43] text-[#2e0e43] hover:bg-[#2e0e43] hover:text-white font-sans text-xs font-bold uppercase tracking-[0.2em] transition-all duration-300 shadow-xs cursor-pointer hover:shadow-md active:scale-95"
-                    >
-                      Load More Creations
-                    </button>
+
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      {/* Previous Page */}
+                      <button
+                        type="button"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border flex items-center justify-center transition-all ${
+                          currentPage === 1
+                            ? 'border-[#E8DFC8] text-gray-300 cursor-not-allowed'
+                            : 'border-[#D5C6B1] text-[#2A2623] hover:border-[#2e0e43] hover:text-[#2e0e43] cursor-pointer'
+                        }`}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+
+                      {/* Page Numbers */}
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                        const isCurrent = pageNum === currentPage;
+                        if (
+                          totalPages > 6 &&
+                          pageNum !== 1 &&
+                          pageNum !== totalPages &&
+                          Math.abs(pageNum - currentPage) > 1
+                        ) {
+                          if (pageNum === 2 || pageNum === totalPages - 1) {
+                            return <span key={pageNum} className="px-1 text-xs text-[#7B6D63]">...</span>;
+                          }
+                          return null;
+                        }
+
+                        return (
+                          <button
+                            key={pageNum}
+                            type="button"
+                            onClick={() => handlePageChange(pageNum)}
+                            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full text-xs font-semibold font-sans transition-all cursor-pointer ${
+                              isCurrent
+                                ? 'bg-[#2e0e43] text-white shadow-md'
+                                : 'bg-white text-[#2A2623] border border-[#E8DFC8] hover:border-[#2e0e43] hover:text-[#2e0e43]'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+
+                      {/* Next Page */}
+                      <button
+                        type="button"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border flex items-center justify-center transition-all ${
+                          currentPage === totalPages
+                            ? 'border-[#E8DFC8] text-gray-300 cursor-not-allowed'
+                            : 'border-[#D5C6B1] text-[#2A2623] hover:border-[#2e0e43] hover:text-[#2e0e43] cursor-pointer'
+                        }`}
+                        aria-label="Next page"
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
