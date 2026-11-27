@@ -60,7 +60,7 @@ const AboutSection = () => {
           >
             <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(42,38,35,0.12)] border border-[#E8DFC8]">
               <OptimizedImage
-                src="https://res.cloudinary.com/dcjn4y284/image/upload/v1788008294/velouraz_end_tjyeye.png"
+                src="https://res.cloudinary.com/dy1g9f3bj/image/upload/v1789806625/oruyvr71wucdn8yde1xn.jpg"
                 alt="Velouraz Founders and Heritage Jewellery"
                 preset="banner"
                 aspectRatio="4/5"
